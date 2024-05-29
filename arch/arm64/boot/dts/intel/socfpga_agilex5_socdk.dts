@@ -90,6 +90,7 @@
 	bus-width = <4>;
 	no-1-8-v;
 	cap-sd-highspeed;
+	cap-mmc-highspeed;
 	disable-wp;
 	sd-uhs-sdr50;
 	no-sdio;
