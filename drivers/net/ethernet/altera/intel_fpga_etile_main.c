@@ -2518,7 +2518,7 @@ int etile_dynamic_reconfiguration(struct intel_fpga_etile_eth_private *priv,
 	int ret;
 	static u32 tod_read_value;
 
-	del_timer_sync(&priv->fec_timer);
+	timer_delete_sync(&priv->fec_timer);
 
 	/*step 1 TX_and_RX_digital_reset */
 	etile_TX_and_RX_digital_reset(priv, cmd);
@@ -2771,7 +2771,7 @@ static int etile_shutdown(struct net_device *dev)
 	spin_unlock(&priv->tx_lock);
 	spin_unlock(&priv->mac_cfg_lock);
 	priv->dmaops->uninit_dma(&priv->dma_priv);
-	del_timer_sync(&priv->fec_timer);
+	timer_delete_sync(&priv->fec_timer);
 
 	netdev_warn(dev, "shutdown completed\n");
 

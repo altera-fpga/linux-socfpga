@@ -119,6 +119,7 @@ static int alt_tse_pcs_config(struct phylink_pcs *pcs, unsigned int mode,
 }
 
 static void alt_tse_pcs_get_state(struct phylink_pcs *pcs,
+				  unsigned int neg_mode,
 				  struct phylink_link_state *state)
 {
 	struct altera_tse_pcs *tse_pcs = phylink_pcs_to_tse_pcs(pcs);
@@ -127,7 +128,7 @@ static void alt_tse_pcs_get_state(struct phylink_pcs *pcs,
 	bmsr = tse_pcs_read(tse_pcs, MII_BMSR);
 	lpa = tse_pcs_read(tse_pcs, MII_LPA);
 
-	phylink_mii_c22_pcs_decode_state(state, bmsr, lpa);
+	phylink_mii_c22_pcs_decode_state(state, neg_mode, bmsr, lpa);
 }
 
 static void alt_tse_pcs_an_restart(struct phylink_pcs *pcs)
