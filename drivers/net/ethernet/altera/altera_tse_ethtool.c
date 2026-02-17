@@ -21,6 +21,7 @@
 #include <linux/netdevice.h>
 #include <linux/phy.h>
 
+#include "altera_utils.h"
 #include "altera_tse.h"
 
 #define TSE_STATS_LEN	31
