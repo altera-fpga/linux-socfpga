@@ -1,0 +1,106 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/dma/altr,socfpga-pref-msgdma.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Altera SoCFPGA mSGDMA Prefetcher Controller
+
+maintainers:
+  - Preetam Narayan <preetam.narayan@altera.com>
+
+description: |
+  Altera SoCFPGA mSGDMA Prefetcher Controller for high-performance
+  DMA transfers on SoCFPGA platforms.
+
+properties:
+  compatible:
+    const: altr,socfpga-pref-msgdma
+
+  reg:
+    items:
+      - description: Prefetcher CSR register region (pref_csr).
+      - description: DMA CSR register region (dma_csr).
+      - description: FIFO info register region (fifo_info).
+
+  reg-names:
+    items:
+      - const: pref_csr
+      - const: dma_csr
+      - const: fifo_info
+
+  interrupts:
+    maxItems: 1
+    description: The interrupt for the DMA controller.
+
+  interrupt-names:
+    items:
+      - const: dma-irq
+    description: Name for the interrupt.
+
+  '#dma-cells':
+    const: 1
+    description: Number of cells to encode DMA specifier.
+
+  fifo-depth:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    description: Depth of the FIFO buffer in the DMA engine. Must be greater than
+      fifo-almost-full, which must be greater than fifo-almost-empty.
+
+  fifo-almost-full:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    description: FIFO threshold for 'almost full' condition. Must be less than
+      fifo-depth and greater than fifo-almost-empty.
+
+  fifo-almost-empty:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    description: FIFO threshold for 'almost empty' condition. Must be less than
+      fifo-almost-full.
+
+  prefetch-capability:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    maximum: 512
+    default: 16
+    description: Maximum number of descriptors that can be prefetched.
+      Defaults to 16 if not specified.
+
+  poll-freq:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    minimum: 128
+    default: 128
+    description: Polling frequency used by the DMA channel. Defaults to 128 if not specified.
+
+  channel-name:
+    $ref: /schemas/types.yaml#/definitions/string
+    description: Optional name assigned to the DMA channel.
+
+required:
+  - compatible
+  - reg
+  - reg-names
+  - interrupts
+  - interrupt-names
+  - '#dma-cells'
+  - fifo-depth
+  - fifo-almost-full
+  - fifo-almost-empty
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+    dma0_tx: dma@45000000 {
+      compatible = "altr,socfpga-pref-msgdma";
+      reg-names = "pref_csr", "dma_csr", "fifo_info";
+      reg = <0x45000000 0x20>, <0x45000020 0x20>, <0x45000040 0x20>;
+      #dma-cells = <1>;
+      interrupt-parent = <&intc>;
+      interrupts = <GIC_SPI 17 IRQ_TYPE_LEVEL_HIGH>;
+      interrupt-names = "dma-irq";
+      fifo-depth = <0x1000>;
+      fifo-almost-full = <0x800>;
+      fifo-almost-empty = <0x400>;
+      prefetch-capability = <16>;
+    };
+
