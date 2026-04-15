@@ -937,6 +937,17 @@ S:	Odd Fixes
 F:	Documentation/devicetree/bindings/dma/altr,msgdma.yaml
 F:	drivers/dma/altera-msgdma.c
 
+ALTERA SOCFPGA PREFETCHER MSGDMA DRIVER
+M:	Preetam Narayan <preetam.narayan@altera.com>
+M:	Subhransu S. Prusty <subhransu.sekhar.prusty@altera.com>
+L:	dmaengine@vger.kernel.org
+S:	Maintained
+F:	Documentation/devicetree/bindings/dma/altr,socfpga-pref-msgdma.yaml
+F:	drivers/dma/altera/dma_utils.h
+F:	drivers/dma/altera/msgdma_pref.c
+F:	drivers/dma/altera/msgdma_pref.h
+F:	include/linux/dma/altera_dma_metadata.h
+
 ALTERA PIO DRIVER
 M:	Adrian Ng <adrianhoyin.ng@altera.com>
 L:	linux-gpio@vger.kernel.org
