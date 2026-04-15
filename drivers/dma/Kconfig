@@ -64,6 +64,16 @@ config ALTERA_MSGDMA
 	help
 	  Enable support for Altera / Intel mSGDMA controller.
 
+config ALTERA_MSGDMA_PREFETCHER
+	tristate "Altera mSGDMA Prefetcher Engine"
+	depends on HAS_IOMEM
+	select DMA_ENGINE
+	help
+	  Enable support for the Altera modular Scatter-Gather DMA (mSGDMA)
+	  prefetcher controller. The prefetcher reads descriptors stored in
+	  memory, allowing the DMA engine to process chained transfer
+	  descriptors without CPU intervention between transfers.
+
 config AMBA_PL08X
 	bool "ARM PrimeCell PL080 or PL081 support"
 	depends on ARM_AMBA
