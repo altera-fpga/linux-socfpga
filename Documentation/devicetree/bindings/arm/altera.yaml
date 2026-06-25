@@ -59,6 +59,12 @@ properties:
               - altr,socfpga-stratix10-swvp
           - const: altr,socfpga-stratix10
 
+      - description: Agilex72 boards
+        items:
+          - enum:
+              - altr,socfpga-agilex72-socdk
+          - const: altr,socfpga-agilex72
+
       - description: SoCFPGA VT
         items:
           - const: altr,socfpga-vt
