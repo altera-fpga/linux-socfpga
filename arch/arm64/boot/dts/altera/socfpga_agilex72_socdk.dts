@@ -1,0 +1,146 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (C) 2026, Altera Corporation
+ */
+#include "socfpga_agilex72.dtsi"
+
+/ {
+	model = "Altera SoCFPGA Agilex72 SoCDK";
+	compatible = "altr,socfpga-agilex72-socdk", "altr,socfpga-agilex72";
+
+	aliases {
+		serial0 = &uart0;
+		serial1 = &uart1;
+		serial2 = &uart2;
+		ethernet0 = &gmac1;
+		ethernet1 = &gmac2;
+
+	};
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+		bootargs = "console=ttyS0,115200 root=/dev/ram0 rdinit=/init rw \
+			ramdisk_size=10000000 init=/sbin/init earlycon panic=-1";
+	};
+};
+
+&cb_intosc_div2_clk {
+	clock-frequency = <500000000>;
+};
+
+&osc1 {
+	clock-frequency = <100000000>;
+};
+
+&f2s_free_clk {
+	clock-frequency = <100000000>;
+};
+
+&uart0 {
+	status = "okay";
+};
+
+&timer0 {
+	status = "okay";
+};
+
+&timer1 {
+	status = "okay";
+};
+
+&timer2 {
+	status = "okay";
+};
+
+&timer3 {
+	status = "okay";
+};
+
+&gmac1 {
+	status = "okay";
+	/* TX/RX delays are on the PCB */
+	phy-mode = "rgmii";
+
+	max-frame-size = <9000>;
+
+	fixed-link {
+		speed = <1000>;
+		full-duplex;
+	};
+};
+
+&watchdog0 {
+	status = "okay";
+};
+
+&mmc0 {
+	status = "okay";
+	bus-width = <4>;
+	no-1-8-v;
+	cap-sd-highspeed;
+	cap-mmc-highspeed;
+	disable-wp;
+	no-sdio;
+};
+
+&mmc1 {
+	status = "okay";
+	bus-width = <4>;
+	no-1-8-v;
+	cap-sd-highspeed;
+	cap-mmc-highspeed;
+	disable-wp;
+	no-sdio;
+};
+
+&sdm_xspi {
+	flash@0 {
+		compatible = "jedec,spi-nor";
+		spi-max-frequency = <100000000>;
+		reg = <0>;
+		cdns,fifo-depth = <128>;
+		cdns,fifo-width = <1>;
+		cdns,is-decoded-cs;
+		cdns,trigger-address = <0x0>;
+	};
+};
+
+&spi0 {
+	status = "okay";
+	flash@0 {
+		status = "okay";
+		reg = <0>;
+		compatible = "jedec,spi-nor";
+		spi-max-frequency = <1000000>;
+		spi-rx-bus-width = <1>;
+		spi-tx-bus-width = <1>;
+	};
+};
+
+&i2c0 {
+	status = "okay";
+};
+
+&i2c1 {
+	status = "okay";
+};
+
+&i2c2 {
+	status = "okay";
+};
+
+&i2c3 {
+	status = "okay";
+};
+
+&i2c4 {
+	status = "okay";
+};
+
+&i3c0 {
+	status = "okay";
+};
+
+&i3c1 {
+	status = "okay";
+};
