@@ -593,11 +593,7 @@ FCS_HAL_INT hal_counter_set(struct fcs_cmd_context *const k_ctx)
 		return ret;
 	}
 
-	ret = fcs_plat_copy_from_user(s_buf, &k_ctx->ctr_set.cache, tsz);
-	if (ret) {
-		LOG_ERR("Failed to copy cache to kernel buffer ret: %d\n", ret);
-		goto free_mem;
-	}
+	fcs_plat_memcpy(s_buf, &k_ctx->ctr_set.cache, tsz);
 
 	ret = fcs_plat_copy_from_user(s_buf + tsz, k_ctx->ctr_set.ccert,
 				      k_ctx->ctr_set.ccert_len);
@@ -782,13 +778,8 @@ FCS_HAL_INT hal_hkdf_request(struct fcs_cmd_context *const k_ctx)
 
 	fcs_plat_memset(src_ptr, 0, HKDF_REQ_SZ_MAX);
 
-	ret = fcs_plat_copy_from_user(src_ptr, &ctx.hkdf_req.ikm_len,
-				      sizeof(ctx.hkdf_req.ikm_len));
-	if (ret) {
-		LOG_ERR("Failed to copy HKDF salt length from user to kernel buffer ret: %d\n",
-			ret);
-		goto free_mem;
-	}
+	fcs_plat_memcpy(src_ptr, &ctx.hkdf_req.ikm_len,
+			sizeof(ctx.hkdf_req.ikm_len));
 	src_ptr += sizeof(ctx.hkdf_req.ikm_len);
 
 	ret = fcs_plat_copy_from_user(src_ptr, ctx.hkdf_req.ikm,
@@ -800,13 +791,8 @@ FCS_HAL_INT hal_hkdf_request(struct fcs_cmd_context *const k_ctx)
 	}
 	src_ptr += HKDF_INPUT_DATA_SIZE;
 
-	ret = fcs_plat_copy_from_user(src_ptr, &ctx.hkdf_req.info_len,
-				      sizeof(ctx.hkdf_req.info_len));
-	if (ret) {
-		LOG_ERR("Failed to copy HKDF salt from user to kernel buffer ret: %d\n",
-			ret);
-		goto free_mem;
-	}
+	fcs_plat_memcpy(src_ptr, &ctx.hkdf_req.info_len,
+			sizeof(ctx.hkdf_req.info_len));
 	src_ptr += sizeof(ctx.hkdf_req.info_len);
 
 	ret = fcs_plat_copy_from_user(src_ptr, ctx.hkdf_req.info,
@@ -2223,19 +2209,9 @@ FCS_HAL_INT hal_qspi_write(struct fcs_cmd_context *const k_ctx)
 		return ret;
 	}
 
-	ret = fcs_plat_copy_from_user(s_buf, &ctx.qspi_write.qspi_addr, 4);
-	if (ret) {
-		LOG_ERR("Failed to copy QSPI write address from user to kernel buffer ret: %d\n",
-			ret);
-		goto free_src_mem;
-	}
+	fcs_plat_memcpy(s_buf, &ctx.qspi_write.qspi_addr, 4);
 
-	ret = fcs_plat_copy_from_user(s_buf + 4, &ctx.qspi_write.qspi_len, 4);
-	if (ret) {
-		LOG_ERR("Failed to copy QSPI write length from user to kernel buffer ret: %d\n",
-			ret);
-		goto free_src_mem;
-	}
+	fcs_plat_memcpy(s_buf + 4, &ctx.qspi_write.qspi_len, 4);
 
 	ret = fcs_plat_copy_from_user(s_buf + 8, ctx.qspi_write.qspi_data,
 				      ctx.qspi_write.qspi_len * 4);

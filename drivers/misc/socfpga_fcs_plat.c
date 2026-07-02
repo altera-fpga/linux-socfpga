@@ -53,13 +53,9 @@ static void fcs_atf_version_callback(struct stratix10_svc_client *client,
 
 FCS_HAL_INT fcs_plat_copy_to_user(FCS_HAL_VOID *dst, FCS_HAL_VOID *src, FCS_HAL_SIZE size)
 {
-	if (access_ok(dst, size)) {
-		if (copy_to_user(dst, src, size)) {
-			pr_err("Failed to copy data to user-space\n");
-			return -EFAULT;
-		}
-	} else {
-		fcs_plat_memcpy(dst, src, size);
+	if (copy_to_user((FCS_HAL_VOID __user *)dst, src, size)) {
+		pr_err("Failed to copy data to user-space\n");
+		return -EFAULT;
 	}
 
 	return 0;
@@ -67,13 +63,9 @@ FCS_HAL_INT fcs_plat_copy_to_user(FCS_HAL_VOID *dst, FCS_HAL_VOID *src, FCS_HAL_
 
 FCS_HAL_INT fcs_plat_copy_from_user(FCS_HAL_VOID *dst, FCS_HAL_VOID *src, FCS_HAL_SIZE size)
 {
-	if (access_ok(src, size)) {
-		if (copy_from_user(dst, src, size)) {
-			pr_err("Failed to copy data from user-space\n");
-			return -EFAULT;
-		}
-	} else {
-		fcs_plat_memcpy(dst, src, size);
+	if (copy_from_user(dst, (const FCS_HAL_VOID __user *)src, size)) {
+		pr_err("Failed to copy data from user-space\n");
+		return -EFAULT;
 	}
 
 	return 0;
