@@ -268,6 +268,7 @@ static void fcs_hwrng_callback(struct stratix10_svc_client *client,
 	complete(&priv->completion);
 }
 
+#ifdef CONFIG_ALTERA_SOCFPGA_FCS_DEBUG
 static void fcs_mbox_send_cmd_callback(struct stratix10_svc_client *client,
 				     struct stratix10_svc_cb_data *data)
 {
@@ -289,6 +290,7 @@ static void fcs_mbox_send_cmd_callback(struct stratix10_svc_client *client,
 
 	complete(&priv->completion);
 }
+#endif
 
 static void fcs_sdos_data_poll_callback(struct stratix10_svc_client *client,
 			      struct stratix10_svc_cb_data *data)
@@ -2881,6 +2883,7 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 
 		break;
 
+#ifdef CONFIG_ALTERA_SOCFPGA_FCS_DEBUG
 	case INTEL_FCS_DEV_MBOX_SEND:
 		if (copy_from_user(data, (void __user *)arg, sizeof(*data))) {
 			dev_err(dev, "failure on copy_from_user\n");
@@ -2985,6 +2988,7 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 
 		fcs_close_services(priv, s_buf, d_buf);
 		break;
+#endif
 
 	case INTEL_FCS_DEV_CHECK_SMMU_ENABLED:
 		if (copy_from_user(data, (void __user *)arg, sizeof(*data))) {
