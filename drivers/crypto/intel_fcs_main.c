@@ -408,6 +408,7 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 	void *iv_field_buf;
 	void *input_file_pointer;
 	void *output_file_pointer;
+	void __user *rng_dst;
 	unsigned int buf_sz, in_sz, out_sz;
 	uint32_t remaining_size, data_size, total_out_size;
 	uint32_t sign_size;
@@ -1143,8 +1144,12 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 				return -EFAULT;
 			}
 
-			memcpy(data->com_paras.subkey.rsp_data,
-			       priv->kbuf, priv->size);
+			if (copy_to_user((void __user *)data->com_paras.subkey.rsp_data,
+					 priv->kbuf, priv->size)) {
+				dev_err(dev, "failure on copy_to_user\n");
+				fcs_close_services(priv, s_buf, d_buf);
+				return -EFAULT;
+			}
 			data->com_paras.subkey.rsp_data_sz = priv->size;
 			data->status = priv->status;
 
@@ -1244,8 +1249,12 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 				return -EFAULT;
 			}
 
-			memcpy(data->com_paras.measurement.rsp_data,
-			       priv->kbuf, priv->size);
+			if (copy_to_user((void __user *)data->com_paras.measurement.rsp_data,
+					 priv->kbuf, priv->size)) {
+				dev_err(dev, "failure on copy_to_user\n");
+				fcs_close_services(priv, s_buf, d_buf);
+				return -EFAULT;
+			}
 			data->com_paras.measurement.rsp_data_sz = priv->size;
 			data->status = priv->status;
 		} else {
@@ -1302,8 +1311,12 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 				return -EFAULT;
 			}
 
-			memcpy(data->com_paras.certificate.rsp_data,
-			       priv->kbuf, priv->size);
+			if (copy_to_user((void __user *)data->com_paras.certificate.rsp_data,
+					 priv->kbuf, priv->size)) {
+				dev_err(dev, "failure on copy_to_user\n");
+				fcs_close_services(priv, NULL, d_buf);
+				return -EFAULT;
+			}
 			data->com_paras.certificate.rsp_data_sz = priv->size;
 			data->status = priv->status;
 		} else {
@@ -1579,13 +1592,17 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 				 return -EFAULT;
 			 }
 
-			 memcpy(data->com_paras.k_object.obj_data,
-				priv->kbuf, priv->size);
-			 data->com_paras.k_object.obj_data_sz = priv->size;
-		 } else {
-			 data->com_paras.k_object.obj_data = NULL;
-			 data->com_paras.k_object.obj_data_sz = 0;
-		 }
+			if (copy_to_user((void __user *)data->com_paras.k_object.obj_data,
+					 priv->kbuf, priv->size)) {
+				dev_err(dev, "failure on copy_to_user\n");
+				fcs_close_services(priv, NULL, d_buf);
+				return -EFAULT;
+			}
+			data->com_paras.k_object.obj_data_sz = priv->size;
+		} else {
+			data->com_paras.k_object.obj_data = NULL;
+			data->com_paras.k_object.obj_data_sz = 0;
+		}
 
 		 data->status = priv->status;
 
@@ -1666,13 +1683,17 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 				 return -EFAULT;
 			 }
 
-			 memcpy(data->com_paras.k_object.obj_data,
-				priv->kbuf, priv->size);
-			 data->com_paras.k_object.obj_data_sz = priv->size;
-		 } else {
-			 data->com_paras.k_object.obj_data = NULL;
-			 data->com_paras.k_object.obj_data_sz = 0;
-		 }
+			if (copy_to_user((void __user *)data->com_paras.k_object.obj_data,
+					 priv->kbuf, priv->size)) {
+				dev_err(dev, "failure on copy_to_user\n");
+				fcs_close_services(priv, NULL, d_buf);
+				return -EFAULT;
+			}
+			data->com_paras.k_object.obj_data_sz = priv->size;
+		} else {
+			data->com_paras.k_object.obj_data = NULL;
+			data->com_paras.k_object.obj_data_sz = 0;
+		}
 
 		 data->status = priv->status;
 
@@ -1752,7 +1773,7 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 		fcs_free_memory(priv, iv_field_buf, NULL, NULL);
 
 		s_buf = stratix10_svc_allocate_memory(priv->chan,
-						      data->com_paras.a_crypt.src_size);;
+						      data->com_paras.a_crypt.src_size);
 		if (IS_ERR(s_buf)) {
 			dev_err(dev, "failed allocate source buf\n");
 			fcs_close_services(priv, NULL, NULL);
@@ -1974,7 +1995,12 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 			remaining_size -= data_size;
 			if (remaining_size == 0) {
 				dev_dbg(dev, "Crypto get digest finish sending\n");
-				memcpy(data->com_paras.s_mac_data.dst, priv->kbuf, priv->size);
+				if (copy_to_user((void __user *)data->com_paras.s_mac_data.dst,
+						 priv->kbuf, priv->size)) {
+					dev_err(dev, "failure on copy_to_user\n");
+					fcs_close_services(priv, s_buf, d_buf);
+					return -EFAULT;
+				}
 				data->com_paras.s_mac_data.dst_size = priv->size;
 				break;
 			} else {
@@ -2103,7 +2129,12 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 			remaining_size -= data_size;
 			if (remaining_size == 0) {
 				dev_dbg(dev, "Crypto get verify finish sending\n");
-				memcpy(data->com_paras.s_mac_data.dst, priv->kbuf, priv->size);
+				if (copy_to_user((void __user *)data->com_paras.s_mac_data.dst,
+						 priv->kbuf, priv->size)) {
+					dev_err(dev, "failure on copy_to_user\n");
+					fcs_close_services(priv, s_buf, d_buf);
+					return -EFAULT;
+				}
 				data->com_paras.s_mac_data.dst_size = priv->size;
 				break;
 			} else {
@@ -2190,13 +2221,17 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 				 return -EFAULT;
 			 }
 
-			 memcpy(data->com_paras.ecdsa_data.dst,
-				priv->kbuf, priv->size);
-			 data->com_paras.ecdsa_data.dst_size = priv->size;
-		 } else {
-			 data->com_paras.ecdsa_data.dst = NULL;
-			 data->com_paras.ecdsa_data.dst_size = 0;
-		 }
+			if (copy_to_user((void __user *)data->com_paras.ecdsa_data.dst,
+					 priv->kbuf, priv->size)) {
+				dev_err(dev, "failure on copy_to_user\n");
+				fcs_close_services(priv, s_buf, d_buf);
+				return -EFAULT;
+			}
+			data->com_paras.ecdsa_data.dst_size = priv->size;
+		} else {
+			data->com_paras.ecdsa_data.dst = NULL;
+			data->com_paras.ecdsa_data.dst_size = 0;
+		}
 
 		 data->status = priv->status;
 
@@ -2303,7 +2338,12 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 			remaining_size -= data_size;
 			if (remaining_size == 0) {
 				dev_dbg(dev, "ECDSA data sign finish sending\n");
-				memcpy(data->com_paras.ecdsa_data.dst, priv->kbuf, priv->size);
+				if (copy_to_user((void __user *)data->com_paras.ecdsa_data.dst,
+						 priv->kbuf, priv->size)) {
+					dev_err(dev, "failure on copy_to_user\n");
+					fcs_close_services(priv, s_buf, d_buf);
+					return -EFAULT;
+				}
 				data->com_paras.ecdsa_data.dst_size = priv->size;
 				break;
 			} else {
@@ -2390,13 +2430,17 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 				 return -EFAULT;
 			 }
 
-			 memcpy(data->com_paras.ecdsa_data.dst,
-				priv->kbuf, priv->size);
-			 data->com_paras.ecdsa_data.dst_size = priv->size;
-		 } else {
-			 data->com_paras.ecdsa_data.dst = NULL;
-			 data->com_paras.ecdsa_data.dst_size = 0;
-		 }
+			if (copy_to_user((void __user *)data->com_paras.ecdsa_data.dst,
+					 priv->kbuf, priv->size)) {
+				dev_err(dev, "failure on copy_to_user\n");
+				fcs_close_services(priv, s_buf, d_buf);
+				return -EFAULT;
+			}
+			data->com_paras.ecdsa_data.dst_size = priv->size;
+		} else {
+			data->com_paras.ecdsa_data.dst = NULL;
+			data->com_paras.ecdsa_data.dst_size = 0;
+		}
 
 		 data->status = priv->status;
 
@@ -2518,8 +2562,12 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 			remaining_size -= data_size;
 			if (remaining_size == 0) {
 				dev_dbg(dev, "ECDSA data verify finish sending\n");
-				memcpy(data->com_paras.ecdsa_sha2_data.dst, priv->kbuf,
-						priv->size);
+				if (copy_to_user((void __user *)data->com_paras.ecdsa_sha2_data.dst,
+						 priv->kbuf, priv->size)) {
+					dev_err(dev, "failure on copy_to_user\n");
+					fcs_close_services(priv, s_buf, d_buf);
+					return -EFAULT;
+				}
 				data->com_paras.ecdsa_sha2_data.dst_size = priv->size;
 				break;
 			} else {
@@ -2595,13 +2643,17 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 				return -EFAULT;
 			 }
 
-			 memcpy(data->com_paras.ecdsa_data.dst,
-				priv->kbuf, priv->size);
-			 data->com_paras.ecdsa_data.dst_size = priv->size;
-		 } else {
-			 data->com_paras.ecdsa_data.dst = NULL;
-			 data->com_paras.ecdsa_data.dst_size = 0;
-		 }
+			if (copy_to_user((void __user *)data->com_paras.ecdsa_data.dst,
+					 priv->kbuf, priv->size)) {
+				dev_err(dev, "failure on copy_to_user\n");
+				fcs_close_services(priv, NULL, d_buf);
+				return -EFAULT;
+			}
+			data->com_paras.ecdsa_data.dst_size = priv->size;
+		} else {
+			data->com_paras.ecdsa_data.dst = NULL;
+			data->com_paras.ecdsa_data.dst_size = 0;
+		}
 
 		 data->status = priv->status;
 
@@ -2699,8 +2751,12 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 				return -EFAULT;
 			}
 
-			memcpy(data->com_paras.ecdsa_data.dst,
-			       priv->kbuf, priv->size);
+			if (copy_to_user((void __user *)data->com_paras.ecdsa_data.dst,
+					 priv->kbuf, priv->size)) {
+				dev_err(dev, "failure on copy_to_user\n");
+				fcs_close_services(priv, s_buf, d_buf);
+				return -EFAULT;
+			}
 			data->com_paras.ecdsa_data.dst_size = priv->size;
 		} else {
 			data->com_paras.ecdsa_data.dst = NULL;
@@ -2727,6 +2783,7 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 		sid = data->com_paras.rn_gen_ext.sid;
 		cid = data->com_paras.rn_gen_ext.cid;
 		out_sz = data->com_paras.rn_gen_ext.rng_sz;
+		rng_dst = (void __user *)data->com_paras.rn_gen_ext.rng_data;
 		buf_sz = RANDOM_NUMBER_EXT_SIZE + RANDOM_NUMBER_EXT_OFFSET;
 
 		d_buf = stratix10_svc_allocate_memory(priv->chan, buf_sz);
@@ -2760,17 +2817,21 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 							  FCS_REQUEST_TIMEOUT);
 				dev_dbg(dev, "request service ret=%d\n", ret);
 
-				if (!ret && !priv->status) {
-					if (priv->size == out_sz + RANDOM_NUMBER_EXT_OFFSET) {
-						memcpy(data->com_paras.rn_gen_ext.rng_data,
-						       priv->kbuf + RANDOM_NUMBER_EXT_OFFSET,
-						       out_sz);
-						data->com_paras.rn_gen_ext.rng_sz = out_sz;
-						break;
-					}
-				} else {
+				if (ret || priv->status) {
 					data->com_paras.rn_gen_ext.rng_data = NULL;
 					data->com_paras.rn_gen_ext.rng_sz = 0;
+					break;
+				}
+
+				if (priv->size == out_sz + RANDOM_NUMBER_EXT_OFFSET) {
+					if (copy_to_user(rng_dst,
+							 priv->kbuf + RANDOM_NUMBER_EXT_OFFSET,
+							 out_sz)) {
+						dev_err(dev, "failure on copy_to_user\n");
+						fcs_close_services(priv, NULL, d_buf);
+						return -EFAULT;
+					}
+					data->com_paras.rn_gen_ext.rng_sz = out_sz;
 					break;
 				}
 				timeout--;
@@ -2865,8 +2926,12 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 				return -EFAULT;
 			}
 
-			memcpy(data->com_paras.data_sdos_ext.dst,
-			       priv->kbuf, priv->size);
+			if (copy_to_user((void __user *)data->com_paras.data_sdos_ext.dst,
+					 priv->kbuf, priv->size)) {
+				dev_err(dev, "failure on copy_to_user\n");
+				fcs_close_services(priv, s_buf, d_buf);
+				return -EFAULT;
+			}
 			data->com_paras.data_sdos_ext.dst_size = priv->size;
 		} else {
 			data->com_paras.data_sdos_ext.dst = NULL;
@@ -3255,7 +3320,13 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 		remaining_size -= data_size;
 		if (remaining_size == 0) {
 			dev_dbg(dev, "Crypto get digest finish sending\n");
-			memcpy(data->com_paras.s_mac_data.dst, priv->kbuf, priv->size);
+			if (copy_to_user((void __user *)data->com_paras.s_mac_data.dst,
+					 priv->kbuf, priv->size)) {
+				dev_err(dev, "failure on copy_to_user\n");
+				context_bank_disable(priv);
+				fcs_close_services(priv, ps_buf, d_buf);
+				return -EFAULT;
+			}
 			data->com_paras.s_mac_data.dst_size = priv->size;
 		}
 
@@ -3395,7 +3466,13 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 		remaining_size -= data_size;
 		if (remaining_size == 0) {
 			dev_dbg(dev, "Crypto get verify finish sending\n");
-			memcpy(data->com_paras.s_mac_data.dst, priv->kbuf, priv->size);
+			if (copy_to_user((void __user *)data->com_paras.s_mac_data.dst,
+					 priv->kbuf, priv->size)) {
+				dev_err(dev, "failure on copy_to_user\n");
+				context_bank_disable(priv);
+				fcs_close_services(priv, ps_buf, d_buf);
+				return -EFAULT;
+			}
 			data->com_paras.s_mac_data.dst_size = priv->size;
 		}
 
@@ -3517,7 +3594,13 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 		remaining_size -= data_size;
 		if (remaining_size == 0) {
 			dev_dbg(dev, "ECDSA data sign finish sending\n");
-			memcpy(data->com_paras.ecdsa_data.dst, priv->kbuf, priv->size);
+			if (copy_to_user((void __user *)data->com_paras.ecdsa_data.dst,
+					 priv->kbuf, priv->size)) {
+				dev_err(dev, "failure on copy_to_user\n");
+				context_bank_disable(priv);
+				fcs_close_services(priv, ps_buf, d_buf);
+				return -EFAULT;
+			}
 			data->com_paras.ecdsa_data.dst_size = priv->size;
 		}
 
@@ -3656,8 +3739,13 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 		remaining_size -= data_size;
 		if (remaining_size == 0) {
 			dev_dbg(dev, "ECDSA data verify finish sending\n");
-			memcpy(data->com_paras.ecdsa_sha2_data.dst, priv->kbuf,
-					priv->size);
+			if (copy_to_user((void __user *)data->com_paras.ecdsa_sha2_data.dst,
+					 priv->kbuf, priv->size)) {
+				dev_err(dev, "failure on copy_to_user\n");
+				context_bank_disable(priv);
+				fcs_close_services(priv, d_buf, ps_buf);
+				return -EFAULT;
+			}
 			data->com_paras.ecdsa_sha2_data.dst_size = priv->size;
 		}
 
