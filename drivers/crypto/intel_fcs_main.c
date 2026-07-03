@@ -16,6 +16,7 @@
 #include <linux/mutex.h>
 #include <linux/of.h>
 #include <linux/of_platform.h>
+#include <linux/overflow.h>
 #include <linux/platform_device.h>
 #include <linux/firmware/intel/stratix10-svc-client.h>
 #include <linux/string.h>
@@ -3331,9 +3332,18 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 			}
 			msg->command = COMMAND_FCS_CRYPTO_MAC_VERIFY_UPDATE_SMMU;
 		} else {
+			size_t copy_len;
+
 			data_size = remaining_size;
 			ud_sz = data->com_paras.s_mac_data.userdata_sz;
-			memcpy(d_buf, (source_ptr+ud_sz), (remaining_size-ud_sz));
+			if (check_sub_overflow(remaining_size, ud_sz, &copy_len) ||
+			    copy_len > out_sz) {
+				dev_err(dev, "invalid MAC verify SMMU size: src=%u ud=%zu dst=%u\n",
+					remaining_size, ud_sz, out_sz);
+				fcs_close_services(priv, ps_buf, d_buf);
+				return -EINVAL;
+			}
+			memcpy(d_buf, (source_ptr + ud_sz), copy_len);
 			msg->command = COMMAND_FCS_CRYPTO_MAC_VERIFY_FINALIZE_SMMU;
 			dev_dbg(dev, "Finalize. data_size=%d, ud_sz=%ld\n", data_size,
 					ud_sz);
@@ -3575,7 +3585,7 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 		}
 
 		if (remaining_size > ECDSA_CMD_MAX_SZ) {
-			if (data->com_paras.s_mac_data.userdata_sz >= ECDSA_CMD_MAX_SZ) {
+			if (data->com_paras.ecdsa_sha2_data.userdata_sz >= ECDSA_CMD_MAX_SZ) {
 				data_size = ECDSA_CMD_MAX_SZ;
 				ud_sz = ECDSA_CMD_MAX_SZ;
 			} else {
@@ -3584,9 +3594,18 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 			}
 			msg->command = COMMAND_FCS_CRYPTO_ECDSA_SHA2_VERIFY_UPDATE_SMMU;
 		} else {
+			size_t copy_len;
+
 			data_size = remaining_size;
 			ud_sz = data->com_paras.ecdsa_sha2_data.userdata_sz;
-			memcpy(d_buf, (source_ptr+ud_sz), (remaining_size-ud_sz));
+			if (check_sub_overflow(remaining_size, ud_sz, &copy_len) ||
+			    copy_len > SMMU_BUF_SIZE) {
+				dev_err(dev, "invalid ECDSA verify SMMU size: src=%u ud=%zu max=%u\n",
+					remaining_size, ud_sz, (unsigned int)SMMU_BUF_SIZE);
+				fcs_close_services(priv, ps_buf, d_buf);
+				return -EINVAL;
+			}
+			memcpy(d_buf, (source_ptr + ud_sz), copy_len);
 			msg->command = COMMAND_FCS_CRYPTO_ECDSA_SHA2_VERIFY_FINALIZE_SMMU;
 			dev_dbg(dev, "Finalize. data_size=%d, ud_sz=%ld\n", data_size,
 					ud_sz);
