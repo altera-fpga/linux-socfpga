@@ -21,10 +21,6 @@
 	};
 };
 
-&gmac0 {
-	status = "disabled";
-};
-
 &qspi {
 	status = "okay";
 	/delete-node/ flash@0;

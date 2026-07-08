@@ -19,7 +19,4 @@
 	};
 };
 
-&gmac0 {
-	status = "disabled";
-};
 
