@@ -1578,6 +1578,133 @@ FCS_HAL_INT hal_aes_crypt(struct fcs_cmd_context *const k_ctx)
 }
 EXPORT_SYMBOL(hal_aes_crypt);
 
+FCS_HAL_INT hal_ecdh_req(struct fcs_cmd_context *const k_ctx)
+{
+	FCS_HAL_INT ret = 0;
+	FCS_HAL_VOID *s_buf = NULL, *d_buf = NULL;
+	struct fcs_cmd_context ctx;
+	FCS_HAL_UINT d_buf_len = 0;
+
+	fcs_plat_memcpy(&ctx, k_ctx, sizeof(struct fcs_cmd_context));
+
+	if ((ctx.ecdh_req.ecc_curve == FCS_ECC_CURVE_NIST_P256 &&
+	     ctx.ecdh_req.pubkey_len != FCS_ECDH_P256_PUBKEY_LEN) ||
+	    (ctx.ecdh_req.ecc_curve == FCS_ECC_CURVE_NIST_P384 &&
+	     ctx.ecdh_req.pubkey_len != FCS_ECDH_P384_PUBKEY_LEN) ||
+	    (ctx.ecdh_req.ecc_curve == FCS_ECC_CURVE_BRAINPOOL_P256 &&
+	     ctx.ecdh_req.pubkey_len != FCS_ECDH_BP256_PUBKEY_LEN) ||
+	    (ctx.ecdh_req.ecc_curve == FCS_ECC_CURVE_BRAINPOOL_P384 &&
+	     ctx.ecdh_req.pubkey_len != FCS_ECDH_BP384_PUBKEY_LEN)) {
+		ret = -EINVAL;
+		LOG_ERR("Invalid shared secret length ret: %d\n", ret);
+		return ret;
+	}
+
+	/* Compare the session UUIDs to check for a match. Here suuid is set
+	 * through hal_store_context
+	 */
+	ret = fcs_plat_uuid_compare(&priv->uuid_id, &ctx.ecdh_req.suuid);
+	if (!ret) {
+		ret = -EINVAL;
+		LOG_ERR("session UUID Mismatch ret: %d\n", ret);
+		return ret;
+	}
+
+	/* Allocate memory for the source buffer */
+	s_buf = priv->plat_data->svc_alloc_memory(priv,
+						  ctx.ecdh_req.pubkey_len);
+	if (IS_ERR(s_buf)) {
+		ret = -ENOMEM;
+		LOG_ERR("Failed to allocate memory for ECDH source buffer ret: %d\n",
+			ret);
+		return ret;
+	}
+
+	/* Copy the user space source data to the source buffer */
+	ret = fcs_plat_copy_from_user(s_buf, ctx.ecdh_req.pubkey,
+				      ctx.ecdh_req.pubkey_len);
+	if (ret) {
+		LOG_ERR("Failed to copy ECDH data from user to kernel buffer ret: %d\n",
+			ret);
+		goto free_src;
+	}
+
+	/* 1 byte for format indicator + pk len bytes for X coordinate + pk len
+	 * bytes for Y coordinate
+	 */
+	d_buf_len = ctx.ecdh_req.pubkey_len >> 1;
+	/* Allocate memory for the destination buffer */
+	d_buf = priv->plat_data->svc_alloc_memory(priv, d_buf_len + 12);
+	if (IS_ERR(d_buf)) {
+		ret = -ENOMEM;
+		LOG_ERR("Failed to allocate memory for ECDH destination buffer ret: %d\n",
+			ret);
+		goto free_src;
+	}
+
+	k_ctx->ecdh_req.pubkey = s_buf;
+	k_ctx->ecdh_req.sh_secret = d_buf;
+	k_ctx->ecdh_req.sh_secret_len = &d_buf_len;
+
+	ret = priv->plat_data->svc_send_request(
+		priv, FCS_DEV_CRYPTO_ECDH_REQUEST_INIT, FCS_REQUEST_TIMEOUT);
+	if (ret) {
+		LOG_ERR("Failed to send the cmd=%d,ret=%d\n",
+			FCS_DEV_CRYPTO_ECDH_REQUEST_INIT, ret);
+		goto free_dst;
+	}
+
+	if (priv->status) {
+		ret = -EIO;
+		LOG_ERR("Mailbox error, Failed to perform ECDH ret: %d\n", ret);
+		goto copy_mbox_status;
+	}
+
+	ret = priv->plat_data->svc_send_request(
+		priv, FCS_DEV_CRYPTO_ECDH_REQUEST_FINALIZE,
+		FCS_REQUEST_TIMEOUT);
+	if (ret) {
+		LOG_ERR("Failed to send the cmd=%d,ret=%d\n",
+			FCS_DEV_CRYPTO_ECDH_REQUEST_FINALIZE, ret);
+		goto copy_mbox_status;
+	}
+
+	if (priv->status) {
+		ret = -EIO;
+		LOG_ERR("Mailbox error, Failed to perform ECDH ret: %d\n", ret);
+		goto copy_mbox_status;
+	}
+
+	priv->resp -= RESPONSE_HEADER_SIZE;
+
+	ret = fcs_plat_copy_to_user(ctx.ecdh_req.sh_secret,
+				    d_buf + RESPONSE_HEADER_SIZE, priv->resp);
+	if (ret)
+		LOG_ERR("Failed to copy ECDH data to user ret: %d\n", ret);
+
+	ret = fcs_plat_copy_to_user(ctx.ecdh_req.sh_secret_len, &priv->resp,
+				    sizeof(priv->resp));
+	if (ret) {
+		LOG_ERR("Failed to copy ECDH data length to user ret: %d\n",
+			ret);
+	}
+copy_mbox_status:
+	ret = fcs_plat_copy_to_user(ctx.error_code_addr, &priv->status,
+				    sizeof(priv->status));
+	if (ret) {
+		LOG_ERR("Failed to copy mailbox status code to user ret: %d\n",
+			ret);
+	}
+
+free_dst:
+	priv->plat_data->svc_free_memory(priv, d_buf);
+free_src:
+	priv->plat_data->svc_free_memory(priv, s_buf);
+
+	return ret;
+}
+EXPORT_SYMBOL(hal_ecdh_req);
+
 FCS_HAL_INT hal_sdos_crypt(struct fcs_cmd_context *const k_ctx)
 {
 	FCS_HAL_VOID *s_buf = NULL, *d_buf = NULL;
@@ -1690,6 +1817,804 @@ free_sbuf:
 	return ret;
 }
 EXPORT_SYMBOL(hal_sdos_crypt);
+
+FCS_HAL_INT hal_ecdsa_get_pubkey(struct fcs_cmd_context *const k_ctx)
+{
+	FCS_HAL_INT ret = 0;
+	FCS_HAL_UINT pubkey_len = FCS_ECC_PUBKEY_LEN;
+	FCS_HAL_VOID *d_buf = NULL;
+	struct fcs_cmd_context ctx;
+
+	fcs_plat_memcpy(&ctx, k_ctx, sizeof(struct fcs_cmd_context));
+
+	/* Compare the session UUIDs to check for a match. Here suuid is set
+	 * through hal_store_context
+	 */
+	ret = fcs_plat_uuid_compare(&priv->uuid_id,
+				    &k_ctx->ecdsa_pub_key.suuid);
+	if (!ret) {
+		ret = -EINVAL;
+		LOG_ERR("session UUID Mismatch while requesting pubkey ret: %d\n",
+			ret);
+		return ret;
+	}
+
+	ret = priv->plat_data->svc_send_request(
+		priv, FCS_DEV_CRYPTO_ECDSA_GET_PUBLIC_KEY_INIT,
+		FCS_REQUEST_TIMEOUT);
+	if (ret) {
+		LOG_ERR("Failed to send the cmd=%d,ret=%d\n",
+			FCS_DEV_CRYPTO_ECDSA_GET_PUBLIC_KEY_INIT, ret);
+		return ret;
+	}
+
+	if (priv->status) {
+		ret = -EIO;
+		LOG_ERR("Failed to get public key with mbox status:0x%X\n",
+			priv->status);
+		return ret;
+	}
+
+	d_buf = priv->plat_data->svc_alloc_memory(priv, pubkey_len);
+	if (IS_ERR(d_buf)) {
+		ret = -ENOMEM;
+		LOG_ERR("Failed to allocate memory for ECDSA public key kernel buffer ret: %d\n",
+			ret);
+		return ret;
+	}
+
+	k_ctx->ecdsa_pub_key.pubkey = d_buf;
+	k_ctx->ecdsa_pub_key.pubkey_len = &pubkey_len;
+
+	ret = priv->plat_data->svc_send_request(
+		priv, FCS_DEV_CRYPTO_ECDSA_GET_PUBLIC_KEY_FINALIZE,
+		10 * FCS_REQUEST_TIMEOUT);
+
+	if (ret) {
+		LOG_ERR("Failed to send the cmd=%d,ret=%d\n",
+			FCS_DEV_CRYPTO_ECDSA_GET_PUBLIC_KEY_FINALIZE, ret);
+		goto free_dest;
+	}
+
+	if (priv->status) {
+		ret = -EIO;
+		LOG_ERR("Mailbox error, get ECDSA public key request failed ret: %d\n",
+			ret);
+		goto copy_mbox_status;
+	}
+
+	priv->resp -= RESPONSE_HEADER_SIZE;
+
+	ret = fcs_plat_copy_to_user(ctx.ecdsa_pub_key.pubkey,
+				    d_buf + RESPONSE_HEADER_SIZE, priv->resp);
+	if (ret) {
+		LOG_ERR("Failed to copy ECDSA public key to user ret: %d\n",
+			ret);
+		goto copy_mbox_status;
+	}
+
+	ret = fcs_plat_copy_to_user(ctx.ecdsa_pub_key.pubkey_len, &priv->resp,
+				    sizeof(priv->resp));
+	if (ret) {
+		LOG_ERR("Failed to copy ECDSA public key length to user ret: %d\n",
+			ret);
+	}
+
+copy_mbox_status:
+	if (fcs_plat_copy_to_user(ctx.error_code_addr, &priv->status,
+				  sizeof(priv->status))) {
+		LOG_ERR("Failed to copy mailbox status code to user ret: %d\n",
+			ret);
+	}
+
+free_dest:
+	priv->plat_data->svc_free_memory(priv, d_buf);
+
+	return ret;
+}
+EXPORT_SYMBOL(hal_ecdsa_get_pubkey);
+
+FCS_HAL_INT hal_ecdsa_hash_sign(struct fcs_cmd_context *const k_ctx)
+{
+	FCS_HAL_INT ret = 0;
+	FCS_HAL_VOID *s_buf = NULL, *d_buf = NULL;
+	FCS_HAL_UINT hash_len = FCS_ECDSA_HASH_SIGN_MAX_LEN;
+	struct fcs_cmd_context ctx;
+
+	fcs_plat_memcpy(&ctx, k_ctx, sizeof(struct fcs_cmd_context));
+
+	/* Compare the session UUIDs to check for a match. Here suuid is set
+	 * through hal_store_context
+	 */
+	ret = fcs_plat_uuid_compare(&priv->uuid_id,
+				    &k_ctx->ecdsa_hash_sign.suuid);
+	if (!ret) {
+		ret = -EINVAL;
+		LOG_ERR("session UUID Mismatch ret: %d\n", ret);
+		return ret;
+	}
+
+	ret = priv->plat_data->svc_send_request(
+		priv, FCS_DEV_CRYPTO_ECDSA_HASH_SIGNING_INIT,
+		FCS_REQUEST_TIMEOUT);
+	if (ret) {
+		LOG_ERR("Failed to send the cmd=%d,ret=%d\n",
+			FCS_DEV_CRYPTO_ECDSA_HASH_SIGNING_INIT, ret);
+		return ret;
+	}
+
+	if (priv->status) {
+		ret = -EIO;
+		LOG_ERR("ECDSA Hash sign initialization failed mbox status:0x%X\n",
+			priv->status);
+		return ret;
+	}
+
+	s_buf = priv->plat_data->svc_alloc_memory(priv,
+						  ctx.ecdsa_hash_sign.src_len);
+	if (IS_ERR(s_buf)) {
+		ret = -ENOMEM;
+		LOG_ERR("Failed to allocate memory for ECDSA hash sign ret: %d\n",
+			ret);
+		return ret;
+	}
+
+	/* Copy the user space input data to the input data kernel buffer */
+	ret = fcs_plat_copy_from_user(s_buf, ctx.ecdsa_hash_sign.src,
+				      ctx.ecdsa_hash_sign.src_len);
+	if (ret) {
+		LOG_ERR("Failed to copy ECDSA sign data from user to kernel buffer ret: %d\n",
+			ret);
+		goto free_sbuf;
+	}
+
+	d_buf = priv->plat_data->svc_alloc_memory(priv, hash_len);
+	if (IS_ERR(d_buf)) {
+		ret = -ENOMEM;
+		LOG_ERR("Failed to allocate memory for ECDSA hash sign dst buffer ret: %d\n",
+			ret);
+		goto free_sbuf;
+	}
+
+
+	k_ctx->ecdsa_hash_sign.src = s_buf;
+	k_ctx->ecdsa_hash_sign.dst = d_buf;
+	k_ctx->ecdsa_hash_sign.dst_len = &hash_len;
+
+	ret = priv->plat_data->svc_send_request(
+		priv, FCS_DEV_CRYPTO_ECDSA_HASH_SIGNING_FINALIZE,
+		10 * FCS_REQUEST_TIMEOUT);
+
+	if (ret) {
+		LOG_ERR("Failed to send the cmd=%d,ret=%d\n",
+			FCS_DEV_CRYPTO_ECDSA_HASH_SIGNING_FINALIZE, ret);
+		goto free_dbuf;
+	}
+
+	if (priv->status) {
+		ret = -EIO;
+		LOG_ERR("ECDSA Hash sign initialization failed mbox status:0x%X\n",
+			priv->status);
+		goto copy_mbox_status;
+	}
+
+	priv->resp -= RESPONSE_HEADER_SIZE;
+
+	ret = fcs_plat_copy_to_user(ctx.ecdsa_hash_sign.dst_len, &priv->resp,
+				    priv->resp);
+	if (ret) {
+		LOG_ERR("Failed to copy ECDSA sign data length to user ret: %d\n",
+			ret);
+	}
+
+	ret = fcs_plat_copy_to_user(ctx.ecdsa_hash_sign.dst,
+				    d_buf + RESPONSE_HEADER_SIZE, priv->resp);
+	if (ret) {
+		LOG_ERR("Failed to copy ECDSA sign data to user ret: %d\n",
+			ret);
+	}
+
+copy_mbox_status:
+	if (fcs_plat_copy_to_user(ctx.error_code_addr, &priv->status,
+				  sizeof(priv->status))) {
+		LOG_ERR("Failed to copy mailbox status code to user\n");
+	}
+
+free_dbuf:
+	priv->plat_data->svc_free_memory(priv, d_buf);
+free_sbuf:
+	priv->plat_data->svc_free_memory(priv, s_buf);
+
+	return ret;
+}
+EXPORT_SYMBOL(hal_ecdsa_hash_sign);
+
+FCS_HAL_INT hal_ecdsa_hash_verify(struct fcs_cmd_context *const k_ctx)
+{
+	FCS_HAL_INT ret = 0;
+	FCS_HAL_VOID *s_buf = NULL, *d_buf = NULL;
+	FCS_HAL_U32 total_sz;
+	FCS_HAL_UINT hash_len = FCS_ECDSA_HASH_SIGN_MAX_LEN;
+	struct fcs_cmd_context ctx;
+
+	fcs_plat_memcpy(&ctx, k_ctx, sizeof(struct fcs_cmd_context));
+
+	/* Compare the session UUIDs to check for a match. Here suuid is set
+	 * through hal_store_context
+	 */
+	ret = fcs_plat_uuid_compare(&priv->uuid_id,
+				    &k_ctx->ecdsa_hash_verify.suuid);
+	if (!ret) {
+		ret = -EINVAL;
+		LOG_ERR("session UUID Mismatch ret: %d\n", ret);
+		return ret;
+	}
+
+	ret = priv->plat_data->svc_send_request(
+		priv, FCS_DEV_CRYPTO_ECDSA_HASH_VERIFY_INIT,
+		FCS_REQUEST_TIMEOUT);
+	if (ret) {
+		LOG_ERR("Failed to send the cmd=%d,ret=%d\n",
+			FCS_DEV_CRYPTO_ECDSA_HASH_VERIFY_INIT, ret);
+		return ret;
+	}
+
+	if (priv->status) {
+		ret = -EIO;
+		LOG_ERR("Failed to initialize ECDSA verify, mbox status:0x%X\n",
+			priv->status);
+		return ret;
+	}
+
+	total_sz = ctx.ecdsa_hash_verify.src_len +
+		   ctx.ecdsa_hash_verify.signature_len +
+		   ctx.ecdsa_hash_verify.pubkey_len;
+
+	s_buf = priv->plat_data->svc_alloc_memory(priv, total_sz);
+	if (IS_ERR(s_buf)) {
+		ret = -ENOMEM;
+		LOG_ERR("Failed to allocate memory for ECDSA verify src buffer ret: %d\n",
+			ret);
+		return ret;
+	}
+
+	/* Copy the user space input data to the input data kernel buffer */
+	ret = fcs_plat_copy_from_user(s_buf, ctx.ecdsa_hash_verify.src,
+				      ctx.ecdsa_hash_verify.src_len);
+	if (ret) {
+		LOG_ERR("Failed to copy ECDSA verify user data from user to sbuf ret: %d\n",
+			ret);
+		goto free_sbuf;
+	}
+
+	/* Copy the user space signature data to the input data kernel buffer */
+	ret = fcs_plat_copy_from_user(s_buf + ctx.ecdsa_hash_verify.src_len,
+				      ctx.ecdsa_hash_verify.signature,
+				      ctx.ecdsa_hash_verify.signature_len);
+	if (ret) {
+		LOG_ERR("Failed to copy ECDSA verify signature from user to sbuf ret: %d\n",
+			ret);
+		goto free_sbuf;
+	}
+
+	if (ctx.ecdsa_hash_verify.key_id == 0) {
+		/* Copy the user space public key data to the input data kernel buffer */
+		ret = fcs_plat_copy_from_user(
+			s_buf + ctx.ecdsa_hash_verify.src_len +
+				ctx.ecdsa_hash_verify.signature_len,
+			ctx.ecdsa_hash_verify.pubkey,
+			ctx.ecdsa_hash_verify.pubkey_len);
+		if (ret) {
+			LOG_ERR("ECDSA verify: copy from user failed for public key ret:%d\n",
+				ret);
+			goto free_sbuf;
+		}
+	}
+
+	d_buf = priv->plat_data->svc_alloc_memory(priv, hash_len);
+	if (IS_ERR(d_buf)) {
+		ret = -ENOMEM;
+		LOG_ERR("Failed to allocate memory for ECDSA verify dst buffer ret: %d\n",
+			ret);
+		goto free_sbuf;
+	}
+
+	k_ctx->ecdsa_hash_verify.src = s_buf;
+	k_ctx->ecdsa_hash_verify.src_len = total_sz;
+	k_ctx->ecdsa_hash_verify.dst = d_buf;
+	k_ctx->ecdsa_hash_verify.dst_len = &hash_len;
+
+	ret = priv->plat_data->svc_send_request(
+						priv,
+						FCS_DEV_CRYPTO_ECDSA_HASH_VERIFY_FINALIZE,
+						10 * FCS_REQUEST_TIMEOUT);
+
+	if (ret) {
+		LOG_ERR("Failed to send the cmd=%d,ret=%d\n",
+			FCS_DEV_CRYPTO_ECDSA_HASH_VERIFY_FINALIZE, ret);
+		goto free_dbuf;
+	}
+
+	if (priv->status) {
+		ret = -EIO;
+		LOG_ERR("Failed to perform ECDSA verify mbox status:0x%X\n",
+			priv->status);
+		goto copy_mbox_status;
+	}
+
+	priv->resp -= RESPONSE_HEADER_SIZE;
+
+	ret = fcs_plat_copy_to_user(ctx.ecdsa_hash_verify.dst_len, &priv->resp,
+				    priv->resp);
+	if (ret) {
+		LOG_ERR("Failed to copy ECDSA verify data length to user ret: %d\n",
+			ret);
+	}
+
+	ret = fcs_plat_copy_to_user(ctx.ecdsa_hash_verify.dst,
+				    d_buf + RESPONSE_HEADER_SIZE, priv->resp);
+	if (ret) {
+		LOG_ERR("Failed to copy ECDSA verify data to user ret: %d\n",
+			ret);
+	}
+
+copy_mbox_status:
+	if (copy_to_user(ctx.error_code_addr, &priv->status,
+			 sizeof(priv->status))) {
+		LOG_ERR("Failed to copy mailbox status code to user\n");
+	}
+
+free_dbuf:
+	priv->plat_data->svc_free_memory(priv, d_buf);
+free_sbuf:
+	priv->plat_data->svc_free_memory(priv, s_buf);
+
+	return ret;
+}
+EXPORT_SYMBOL(hal_ecdsa_hash_verify);
+
+static FCS_HAL_INT
+hal_ecdsa_sha2data_sign_upfinal(FCS_HAL_VOID *src, FCS_HAL_U32 src_len,
+				FCS_HAL_VOID *dst, FCS_HAL_U32 dst_len,
+				struct fcs_cmd_context *const k_ctx,
+				FCS_HAL_U32 command)
+{
+	FCS_HAL_INT ret = 0;
+
+	k_ctx->ecdsa_sha2_data_sign.src_len = src_len;
+
+	ret = fcs_plat_copy_from_user(k_ctx->ecdsa_sha2_data_sign.src, src,
+				      src_len);
+	if (ret) {
+		LOG_ERR("Failed to copy ECDSA sign data from user to src buffer ret: %d\n",
+			ret);
+		return ret;
+	}
+
+	ret = priv->plat_data->svc_send_request(priv, command,
+						10 * FCS_REQUEST_TIMEOUT);
+	if (ret) {
+		LOG_ERR("Failed to send the cmd=%d,ret=%d\n", command, ret);
+		goto goto_ret;
+	}
+
+	ret = fcs_plat_copy_to_user(k_ctx->error_code_addr, &priv->status,
+				    sizeof(priv->status));
+	if (ret) {
+		LOG_ERR("Failed to copy mailbox status code to user ret: %d\n",
+			ret);
+		goto goto_ret;
+	}
+
+	if (priv->status) {
+		ret = -EIO;
+		LOG_ERR("Failed to perform ECDSA sha2 data sign mbox status: 0x%x\n",
+			priv->status);
+	}
+
+goto_ret:
+	return ret;
+}
+
+static FCS_HAL_INT
+hal_ecdsa_sha2_data_sign_init(struct fcs_cmd_context *const k_ctx)
+{
+	FCS_HAL_INT ret = 0;
+
+	ret = priv->plat_data->svc_send_request(
+		priv, FCS_DEV_CRYPTO_ECDSA_SHA2_DATA_SIGNING_INIT,
+		FCS_REQUEST_TIMEOUT);
+	if (ret) {
+		LOG_ERR("Failed to send the cmd=%d,ret=%d\n",
+			FCS_DEV_CRYPTO_ECDSA_SHA2_DATA_SIGNING_INIT, ret);
+		return ret;
+	}
+
+	if (priv->status) {
+		ret = -EIO;
+		LOG_ERR("Failed to initialize ECDSA sign ret: %d\n", ret);
+		return ret;
+	}
+
+	return ret;
+}
+
+FCS_HAL_INT hal_ecdsa_sha2_data_sign(struct fcs_cmd_context *const k_ctx)
+{
+	FCS_HAL_INT ret = 0;
+	FCS_HAL_VOID *s_buf = NULL, *d_buf = NULL;
+	FCS_HAL_VOID *ip_ptr = NULL;
+	FCS_HAL_U32 s_buf_sz, d_buf_sz;
+	FCS_HAL_U32 remaining_sz;
+	struct fcs_cmd_context ctx;
+
+	fcs_plat_memcpy(&ctx, k_ctx, sizeof(struct fcs_cmd_context));
+
+	/* Compare the session UUIDs to check for a match.
+	 * Here suuid is set through hal_store_context
+	 */
+	ret = fcs_plat_uuid_compare(&priv->uuid_id,
+				    &k_ctx->ecdsa_sha2_data_sign.suuid);
+	if (!ret) {
+		ret = -EINVAL;
+		LOG_ERR("session UUID Mismatch while performing sha2 data sign ret: %d\n",
+			ret);
+		return ret;
+	}
+
+	ret = hal_ecdsa_sha2_data_sign_init(k_ctx);
+	if (ret) {
+		LOG_ERR("Failed to initialize ECDSA sign ret: %d\n", ret);
+		return ret;
+	}
+
+	s_buf_sz = (ctx.ecdsa_sha2_data_sign.src_len >
+		    FCS_ECDSA_HSHA2_DATA_SIGN_BLOCK_SZ) ?
+			   FCS_ECDSA_HSHA2_DATA_SIGN_BLOCK_SZ :
+			   ctx.ecdsa_sha2_data_sign.src_len;
+
+	s_buf = priv->plat_data->svc_alloc_memory(priv, s_buf_sz);
+	if (IS_ERR(s_buf)) {
+		ret = -ENOMEM;
+		LOG_ERR("Failed to allocate memory for ECDSA sign src buffer ret: %d\n",
+			ret);
+		return ret;
+	}
+
+	d_buf_sz = FCS_ECDSA_HASH_SIGN_MAX_LEN;
+
+	d_buf = priv->plat_data->svc_alloc_memory(priv, d_buf_sz);
+	if (IS_ERR(d_buf)) {
+		ret = -ENOMEM;
+		LOG_ERR("Failed to allocate memory for ECDSA sign dst buffer ret: %d\n",
+			ret);
+		goto free_sbuf;
+	}
+
+
+	remaining_sz = ctx.ecdsa_sha2_data_sign.src_len;
+	ip_ptr = ctx.ecdsa_sha2_data_sign.src;
+
+	k_ctx->ecdsa_sha2_data_sign.src = s_buf;
+	k_ctx->ecdsa_sha2_data_sign.dst = d_buf;
+	k_ctx->ecdsa_sha2_data_sign.dst_len = &d_buf_sz;
+
+	/**
+	 * Perform the update and final stage of ECDSA SHA-2 data signing.
+	 *
+	 * This function processes the input data in blocks of size
+	 * FCS_ECDSA_HSHA2_DATA_SIGN_BLOCK_SZ. For each block, it calls
+	 * hal_ecdsa_sha2data_sign_upfinal to perform the cryptographic update.
+	 *
+	 * if the remaining_sz is less than FCS_ECDSA_HSHA2_DATA_SIGN_BLOCK_SZ,
+	 * the final block is processed by sending the final command to the SDM.
+	 */
+	while (remaining_sz > FCS_ECDSA_HSHA2_DATA_SIGN_BLOCK_SZ) {
+		ret = hal_ecdsa_sha2data_sign_upfinal(
+			ip_ptr, s_buf_sz, d_buf, d_buf_sz, k_ctx,
+			FCS_DEV_CRYPTO_ECDSA_SHA2_DATA_SIGNING_UPDATE);
+		if (ret) {
+			LOG_ERR("Failed to perform SHA2 data sign update ret: %d\n",
+				ret);
+			goto copy_mbox_status;
+		}
+		remaining_sz -= FCS_ECDSA_HSHA2_DATA_SIGN_BLOCK_SZ;
+		ip_ptr += FCS_ECDSA_HSHA2_DATA_SIGN_BLOCK_SZ;
+	}
+
+	ret = hal_ecdsa_sha2data_sign_upfinal(
+		ip_ptr, remaining_sz, d_buf, d_buf_sz, k_ctx,
+		FCS_DEV_CRYPTO_ECDSA_SHA2_DATA_SIGNING_FINALIZE);
+	if (ret) {
+		LOG_ERR("Failed to perform ECDSA SHA2 Data Signing final ret: %d\n",
+			ret);
+		goto copy_mbox_status;
+	}
+
+	priv->resp -= RESPONSE_HEADER_SIZE;
+
+	ret = fcs_plat_copy_to_user(ctx.ecdsa_sha2_data_sign.dst_len,
+				    &priv->resp, sizeof(priv->resp));
+	if (ret) {
+		LOG_ERR("Failed to copy ECDSA sign data length to user ret: %d\n",
+			ret);
+		goto copy_mbox_status;
+	}
+
+	ret = fcs_plat_copy_to_user(ctx.ecdsa_sha2_data_sign.dst,
+				    d_buf + RESPONSE_HEADER_SIZE, priv->resp);
+	if (ret) {
+		LOG_ERR("Failed to copy ECDSA sign data to user ret: %d\n",
+			ret);
+	}
+
+copy_mbox_status:
+	ret = fcs_plat_copy_to_user(ctx.error_code_addr, &priv->status,
+				    sizeof(priv->status));
+	if (ret) {
+		LOG_ERR("Failed to copy mailbox status code to user ret: %d\n",
+			ret);
+	}
+
+	priv->plat_data->svc_free_memory(priv, d_buf);
+free_sbuf:
+	priv->plat_data->svc_free_memory(priv, s_buf);
+
+	return ret;
+}
+EXPORT_SYMBOL(hal_ecdsa_sha2_data_sign);
+
+static FCS_HAL_INT hal_ecdsa_sha2data_verify_upfinal(
+	FCS_HAL_VOID *ip_ptr, FCS_HAL_U32 ip_len, FCS_HAL_CHAR *signature,
+	FCS_HAL_U32 signature_len, FCS_HAL_CHAR *pubkey, FCS_HAL_U32 pubkey_len,
+	FCS_HAL_VOID *dst, FCS_HAL_U32 dst_len,
+	struct fcs_cmd_context *const k_ctx, FCS_HAL_U32 command)
+{
+	FCS_HAL_INT ret = 0;
+	FCS_HAL_U32 copy_sz = ip_len;
+
+	ret = fcs_plat_copy_from_user(k_ctx->ecdsa_sha2_data_verify.src, ip_ptr,
+				      ip_len);
+	if (ret) {
+		LOG_ERR("Failed to copy ECDSA sign data from user to kernel buffer ret: %d\n",
+			ret);
+		return ret;
+	}
+
+	if (command == FCS_DEV_CRYPTO_ECDSA_SHA2_DATA_VERIFY_FINALIZE) {
+		copy_sz += signature_len + pubkey_len;
+
+		ret = fcs_plat_copy_from_user(
+			k_ctx->ecdsa_sha2_data_verify.src + ip_len, signature,
+			signature_len);
+		if (ret) {
+			LOG_ERR("ECDSA sha2verify: signature from user failed ret: %d\n",
+				ret);
+			return ret;
+		}
+
+		if (k_ctx->ecdsa_sha2_data_verify.key_id == 0) {
+			ret = fcs_plat_copy_from_user(
+				k_ctx->ecdsa_sha2_data_verify.src + ip_len +
+					signature_len,
+				pubkey, pubkey_len);
+			if (ret) {
+				LOG_ERR("ECDSA sha2verify: pubkey from user failed ret: %d\n",
+					ret);
+				return ret;
+			}
+		}
+	}
+
+	ret = priv->plat_data->svc_send_request(priv, command,
+						10 * FCS_REQUEST_TIMEOUT);
+	if (ret) {
+		LOG_ERR("Failed to send the cmd=%d,ret=%d\n", command, ret);
+		goto goto_ret;
+	}
+
+	ret = fcs_plat_copy_to_user(k_ctx->error_code_addr, &priv->status,
+				    sizeof(priv->status));
+	if (ret) {
+		LOG_ERR("Failed to copy mailbox status code to user ret: %d\n",
+			ret);
+		goto goto_ret;
+	}
+
+	if (priv->status) {
+		ret = -EIO;
+		LOG_ERR("Failed to perform ECDSA sha2 data verify mbox status:%x\n",
+			priv->status);
+	}
+
+goto_ret:
+	return ret;
+}
+
+static FCS_HAL_INT
+hal_ecdsa_sha2_data_verify_init(struct fcs_cmd_context *const k_ctx)
+{
+	FCS_HAL_INT ret = 0;
+
+	ret = priv->plat_data->svc_send_request(
+		priv, FCS_DEV_CRYPTO_ECDSA_SHA2_DATA_VERIFY_INIT,
+		FCS_REQUEST_TIMEOUT);
+	if (ret) {
+		LOG_ERR("Failed to send the cmd=%d,ret=%d\n",
+			FCS_DEV_CRYPTO_ECDSA_SHA2_DATA_VERIFY_INIT, ret);
+		return ret;
+	}
+
+	if (priv->status) {
+		ret = -EIO;
+		LOG_ERR("Mailbox error, Failed to initialize ECDSA verify ret: %d\n",
+			ret);
+		return ret;
+	}
+
+	return ret;
+}
+
+FCS_HAL_INT hal_ecdsa_sha2_data_verify(struct fcs_cmd_context *const k_ctx)
+{
+	FCS_HAL_INT ret = 0;
+	FCS_HAL_VOID *s_buf = NULL, *d_buf = NULL;
+	FCS_HAL_U32 s_buf_sz, d_buf_sz = FCS_ECDSA_SHA2_DATA_VERIFY_RSP_SZ;
+	FCS_HAL_U32 remaining_sz;
+	FCS_HAL_VOID *ip_ptr = NULL;
+	FCS_HAL_U32 command;
+	struct fcs_cmd_context ctx;
+
+	fcs_plat_memcpy(&ctx, k_ctx, sizeof(struct fcs_cmd_context));
+
+	/* Compare the session UUIDs to check for a match. Here suuid is set
+	 * through hal_store_context
+	 */
+	ret = fcs_plat_uuid_compare(&priv->uuid_id,
+				    &k_ctx->ecdsa_sha2_data_verify.suuid);
+	if (!ret) {
+		ret = -EINVAL;
+		LOG_ERR("session UUID Mismatch in sha2 data verify request ret: %d\n",
+			ret);
+		return ret;
+	}
+
+	ret = hal_ecdsa_sha2_data_verify_init(k_ctx);
+	if (ret) {
+		LOG_ERR("Failed to initialize ECDSA verify ret: %d\n", ret);
+		return ret;
+	}
+
+	remaining_sz = ctx.ecdsa_sha2_data_verify.src_len +
+		       ctx.ecdsa_sha2_data_verify.signature_len +
+		       ctx.ecdsa_sha2_data_verify.pubkey_len;
+
+	s_buf_sz = (remaining_sz > FCS_ECDSA_SHA2_DATA_VERIFY_BLOCK_SZ) ?
+			   FCS_ECDSA_SHA2_DATA_VERIFY_BLOCK_SZ :
+			   remaining_sz;
+
+	s_buf = priv->plat_data->svc_alloc_memory(priv, s_buf_sz);
+	if (IS_ERR(s_buf)) {
+		ret = -ENOMEM;
+		LOG_ERR("Failed to allocate memory for ECDSA sha2verify src buffer ret: %d\n",
+			ret);
+		return ret;
+	}
+
+	d_buf = priv->plat_data->svc_alloc_memory(priv, d_buf_sz);
+	if (IS_ERR(d_buf)) {
+		ret = -ENOMEM;
+		LOG_ERR("Failed to allocate memory for ECDSA sha2verify dst buffer ret: %d\n",
+			ret);
+		goto free_sbuf;
+	}
+
+	k_ctx->ecdsa_sha2_data_verify.src = s_buf;
+	k_ctx->ecdsa_sha2_data_verify.dst = d_buf;
+	k_ctx->ecdsa_sha2_data_verify.dst_len = &d_buf_sz;
+
+	ip_ptr = ctx.ecdsa_sha2_data_verify.src;
+
+	/**
+	 * Perform the update and final stage of ECDSA SHA-2 data verification.
+	 *
+	 * This function processes the input data in blocks of size
+	 * FCS_ECDSA_SHA2_DATA_VERIFY_BLOCK_SZ. For each block, it calls
+	 * hal_ecdsa_sha2data_verify_upfinal to perform the cryptographic update.
+	 *
+	 * if the remaining_sz is less than FCS_ECDSA_SHA2_DATA_VERIFY_BLOCK_SZ,
+	 * the final block is processed by sending the final command to the SDM.
+	 */
+
+	/* Final stage requires minimum 8-bytes of source buffer to be sent */
+
+	while (remaining_sz > 0) {
+		if (remaining_sz > FCS_ECDSA_SHA2_DATA_VERIFY_BLOCK_SZ) {
+			if ((remaining_sz -
+			     FCS_ECDSA_SHA2_DATA_VERIFY_BLOCK_SZ) >=
+			    (CRYPTO_SERVICE_MIN_DATA_SIZE +
+			     ctx.ecdsa_sha2_data_verify.signature_len +
+			     ctx.ecdsa_sha2_data_verify.pubkey_len)) {
+				k_ctx->ecdsa_sha2_data_verify.src_len =
+					FCS_ECDSA_SHA2_DATA_VERIFY_BLOCK_SZ;
+				k_ctx->ecdsa_sha2_data_verify.user_data_sz =
+					FCS_ECDSA_SHA2_DATA_VERIFY_BLOCK_SZ;
+			} else {
+				k_ctx->ecdsa_sha2_data_verify.src_len =
+					remaining_sz -
+					CRYPTO_SERVICE_MIN_DATA_SIZE -
+					ctx.ecdsa_sha2_data_verify
+						.signature_len -
+					ctx.ecdsa_sha2_data_verify.pubkey_len;
+				k_ctx->ecdsa_sha2_data_verify.user_data_sz =
+					remaining_sz -
+					CRYPTO_SERVICE_MIN_DATA_SIZE -
+					ctx.ecdsa_sha2_data_verify
+						.signature_len -
+					ctx.ecdsa_sha2_data_verify.pubkey_len;
+			}
+
+			command = FCS_DEV_CRYPTO_ECDSA_SHA2_DATA_VERIFY_UPDATE;
+		} else {
+			k_ctx->ecdsa_sha2_data_verify.src_len = remaining_sz;
+			k_ctx->ecdsa_sha2_data_verify.user_data_sz =
+				remaining_sz -
+				ctx.ecdsa_sha2_data_verify.signature_len -
+				ctx.ecdsa_sha2_data_verify.pubkey_len;
+			command =
+				FCS_DEV_CRYPTO_ECDSA_SHA2_DATA_VERIFY_FINALIZE;
+		}
+
+		ret = hal_ecdsa_sha2data_verify_upfinal(
+			ip_ptr, k_ctx->ecdsa_sha2_data_verify.user_data_sz,
+			ctx.ecdsa_sha2_data_verify.signature,
+			ctx.ecdsa_sha2_data_verify.signature_len,
+			ctx.ecdsa_sha2_data_verify.pubkey,
+			ctx.ecdsa_sha2_data_verify.pubkey_len, d_buf, d_buf_sz,
+			k_ctx, command);
+		if (ret) {
+			LOG_ERR("Failed to perform SHA2 Data verify final ret: %d\n",
+				ret);
+			goto free_mem;
+		}
+
+		ip_ptr += k_ctx->ecdsa_sha2_data_verify.src_len;
+		remaining_sz -= k_ctx->ecdsa_sha2_data_verify.src_len;
+	}
+
+
+	priv->resp -= RESPONSE_HEADER_SIZE;
+
+	ret = fcs_plat_copy_to_user(ctx.ecdsa_sha2_data_verify.dst,
+				    d_buf + RESPONSE_HEADER_SIZE, priv->resp);
+	if (ret) {
+		LOG_ERR("Failed to copy ECDSA verify data to user ret: %d\n",
+			ret);
+		goto free_mem;
+	}
+
+	ret = fcs_plat_copy_to_user(ctx.ecdsa_sha2_data_verify.dst_len,
+				    &priv->resp, sizeof(priv->resp));
+	if (ret) {
+		LOG_ERR("Failed to copy ECDSA verify data length to user ret: %d\n",
+			ret);
+	}
+
+	ret = fcs_plat_copy_to_user(ctx.error_code_addr, &priv->status,
+				    sizeof(priv->status));
+	if (ret) {
+		LOG_ERR("Failed to copy mailbox status code to user ret: %d\n",
+			ret);
+	}
+
+free_mem:
+	priv->plat_data->svc_free_memory(priv, d_buf);
+free_sbuf:
+	priv->plat_data->svc_free_memory(priv, s_buf);
+
+	return ret;
+}
+EXPORT_SYMBOL(hal_ecdsa_sha2_data_verify);
 
 FCS_HAL_INT hal_hps_img_validate(struct fcs_cmd_context *const k_ctx)
 {
@@ -1902,6 +2827,313 @@ FCS_HAL_INT hal_aes_streaming_final(struct fcs_cmd_context *const k_ctx)
 	return ret;
 }
 EXPORT_SYMBOL(hal_aes_streaming_final);
+
+FCS_HAL_INT
+hal_ecdsa_data_sign_streaming_init(struct fcs_cmd_context *const k_ctx)
+{
+	FCS_HAL_INT ret;
+
+	/* Compare the session UUIDs to check for a match.
+	 */
+	ret = fcs_plat_uuid_compare(&priv->uuid_id,
+				    &k_ctx->ecdsa_sha2_data_verify.suuid);
+	if (!ret) {
+		ret = -EINVAL;
+		LOG_ERR("session UUID Mismatch in sha2 data verify request ret: %d\n",
+			ret);
+		return ret;
+	}
+	ret = hal_ecdsa_sha2_data_sign_init(k_ctx);
+	if (ret) {
+		LOG_ERR("Failed to initialize ECDSA sign ret: %d\n", ret);
+		return ret;
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL(hal_ecdsa_data_sign_streaming_init);
+
+FCS_HAL_INT
+hal_ecdsa_data_sign_streaming_update(struct fcs_cmd_context *const k_ctx)
+{
+	FCS_HAL_INT ret = 0;
+	struct fcs_cmd_context ctx;
+	FCS_HAL_VOID *s_buf = NULL;
+	FCS_HAL_U32 s_buf_sz = 0;
+	FCS_HAL_VOID *d_buf = NULL;
+	FCS_HAL_U32 d_buf_sz = 0;
+
+	fcs_plat_memcpy(&ctx, k_ctx, sizeof(struct fcs_cmd_context));
+
+	s_buf_sz = k_ctx->ecdsa_sha2_data_sign.src_len;
+	s_buf = priv->plat_data->svc_alloc_memory(priv, s_buf_sz);
+	if (IS_ERR(s_buf)) {
+		ret = -ENOMEM;
+		LOG_ERR("Failed to allocate memory for ECDSA sign src buffer ret: %d\n",
+			ret);
+		return ret;
+	}
+
+	d_buf_sz = FCS_ECDSA_HASH_SIGN_MAX_LEN;
+	d_buf = priv->plat_data->svc_alloc_memory(priv, d_buf_sz);
+	if (IS_ERR(d_buf)) {
+		ret = -ENOMEM;
+		LOG_ERR("Failed to allocate memory for ECDSA sign dst buffer ret: %d\n",
+			ret);
+		goto free_src;
+	}
+
+	k_ctx->ecdsa_sha2_data_sign.src = s_buf;
+	k_ctx->ecdsa_sha2_data_sign.dst = d_buf;
+	k_ctx->ecdsa_sha2_data_sign.src_len = s_buf_sz;
+	k_ctx->ecdsa_sha2_data_sign.dst_len = &d_buf_sz;
+	ret = hal_ecdsa_sha2data_sign_upfinal(
+		ctx.ecdsa_sha2_data_sign.src, s_buf_sz, d_buf, d_buf_sz, k_ctx,
+		FCS_DEV_CRYPTO_ECDSA_SHA2_DATA_SIGNING_UPDATE);
+	if (ret) {
+		LOG_ERR("Failed to perform ECDSA sha2 data sign update ret: %d\n",
+			ret);
+		return ret;
+	}
+
+	priv->plat_data->svc_free_memory(priv, d_buf);
+free_src:
+	priv->plat_data->svc_free_memory(priv, s_buf);
+
+	return ret;
+}
+EXPORT_SYMBOL(hal_ecdsa_data_sign_streaming_update);
+
+FCS_HAL_INT
+hal_ecdsa_data_sign_streaming_final(struct fcs_cmd_context *const k_ctx)
+{
+	FCS_HAL_INT ret = 0;
+	struct fcs_cmd_context ctx;
+	FCS_HAL_VOID *s_buf = NULL;
+	FCS_HAL_U32 s_buf_sz = 0;
+	FCS_HAL_VOID *d_buf = NULL;
+	FCS_HAL_U32 d_buf_sz = 0;
+
+	fcs_plat_memcpy(&ctx, k_ctx, sizeof(struct fcs_cmd_context));
+
+	s_buf_sz = k_ctx->ecdsa_sha2_data_sign.src_len;
+	s_buf = priv->plat_data->svc_alloc_memory(priv, s_buf_sz);
+	if (IS_ERR(s_buf)) {
+		ret = -ENOMEM;
+		LOG_ERR("Failed to allocate memory for ECDSA sign src buffer ret: %d\n",
+			ret);
+		return ret;
+	}
+
+	d_buf_sz = FCS_ECDSA_HASH_SIGN_MAX_LEN;
+	d_buf = priv->plat_data->svc_alloc_memory(priv, d_buf_sz);
+	if (IS_ERR(d_buf)) {
+		ret = -ENOMEM;
+		LOG_ERR("Failed to allocate memory for ECDSA sign dst buffer ret: %d\n",
+			ret);
+		goto free_src;
+	}
+
+	k_ctx->ecdsa_sha2_data_sign.src = s_buf;
+	k_ctx->ecdsa_sha2_data_sign.dst = d_buf;
+	k_ctx->ecdsa_sha2_data_sign.src_len = s_buf_sz;
+	k_ctx->ecdsa_sha2_data_sign.dst_len = &d_buf_sz;
+
+	ret = hal_ecdsa_sha2data_sign_upfinal(
+		ctx.ecdsa_sha2_data_sign.src, s_buf_sz, d_buf, d_buf_sz, k_ctx,
+		FCS_DEV_CRYPTO_ECDSA_SHA2_DATA_SIGNING_FINALIZE);
+	if (ret) {
+		LOG_ERR("Failed to perform ECDSA sha2 data sign finalize ret: %d\n",
+			ret);
+		goto free_dst;
+	}
+
+	priv->resp -= RESPONSE_HEADER_SIZE;
+
+	ret = fcs_plat_copy_to_user(ctx.ecdsa_sha2_data_sign.dst_len,
+				    &priv->resp, sizeof(priv->resp));
+	if (ret) {
+		LOG_ERR("Failed to copy ECDSA sign data length to user ret: %d\n",
+			ret);
+		goto copy_mbox_status;
+	}
+
+	ret = fcs_plat_copy_to_user(ctx.ecdsa_sha2_data_sign.dst,
+				    d_buf + RESPONSE_HEADER_SIZE, priv->resp);
+	if (ret)
+		LOG_ERR("Failed to copy ECDSA sign data to user ret: %d\n",
+			ret);
+
+copy_mbox_status:
+	ret = fcs_plat_copy_to_user(ctx.error_code_addr, &priv->status,
+				    sizeof(priv->status));
+	if (ret)
+		LOG_ERR("Failed to copy mailbox status code to user ret: %d\n",
+			ret);
+
+free_dst:
+	priv->plat_data->svc_free_memory(priv, d_buf);
+free_src:
+	priv->plat_data->svc_free_memory(priv, s_buf);
+
+	return ret;
+}
+EXPORT_SYMBOL(hal_ecdsa_data_sign_streaming_final);
+
+FCS_HAL_INT
+hal_ecdsa_data_verify_streaming_init(struct fcs_cmd_context *const k_ctx)
+{
+	FCS_HAL_INT ret;
+
+	/* Compare the session UUIDs to check for a match.
+	 */
+	ret = fcs_plat_uuid_compare(&priv->uuid_id,
+				    &k_ctx->ecdsa_sha2_data_verify.suuid);
+	if (!ret) {
+		ret = -EINVAL;
+		LOG_ERR("session UUID Mismatch in sha2 data verify request ret: %d\n",
+			ret);
+		return ret;
+	}
+
+	ret = hal_ecdsa_sha2_data_verify_init(k_ctx);
+	if (ret) {
+		LOG_ERR("Failed to initialize ECDSA verify ret: %d\n", ret);
+		return ret;
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL(hal_ecdsa_data_verify_streaming_init);
+
+FCS_HAL_INT
+hal_ecdsa_data_verify_streaming_update(struct fcs_cmd_context *const k_ctx)
+{
+	FCS_HAL_INT ret = 0;
+	struct fcs_cmd_context ctx;
+	FCS_HAL_VOID *s_buf = NULL;
+	FCS_HAL_VOID *d_buf = NULL;
+	FCS_HAL_U32 d_buf_sz = 0;
+	FCS_HAL_CHAR *ip_ptr = NULL;
+
+	fcs_plat_memcpy(&ctx, k_ctx, sizeof(struct fcs_cmd_context));
+
+	s_buf = priv->plat_data->svc_alloc_memory(
+		priv, ctx.ecdsa_sha2_data_verify.src_len);
+	if (IS_ERR(s_buf)) {
+		ret = -ENOMEM;
+		LOG_ERR("Failed to allocate memory for ECDSA sign src buffer ret: %d\n",
+			ret);
+		return ret;
+	}
+
+	d_buf_sz = FCS_ECDSA_HASH_SIGN_MAX_LEN;
+	d_buf = priv->plat_data->svc_alloc_memory(priv, d_buf_sz);
+	if (IS_ERR(d_buf)) {
+		ret = -ENOMEM;
+		LOG_ERR("Failed to allocate memory for ECDSA sign dst buffer ret: %d\n",
+			ret);
+		goto free_sbuf;
+	}
+
+	ip_ptr = k_ctx->ecdsa_sha2_data_verify.src;
+	k_ctx->ecdsa_sha2_data_verify.src = s_buf;
+	k_ctx->ecdsa_sha2_data_verify.dst = d_buf;
+	k_ctx->ecdsa_sha2_data_verify.dst_len = &d_buf_sz;
+
+	ret = hal_ecdsa_sha2data_verify_upfinal(
+		ip_ptr, ctx.ecdsa_sha2_data_verify.user_data_sz, NULL, 0, NULL,
+		0, d_buf, d_buf_sz, k_ctx,
+		FCS_DEV_CRYPTO_ECDSA_SHA2_DATA_VERIFY_UPDATE);
+	if (ret)
+		LOG_ERR("Failed to perform ECDSA sha2 data verify update ret: %d\n",
+			ret);
+
+	priv->plat_data->svc_free_memory(priv, d_buf);
+free_sbuf:
+	priv->plat_data->svc_free_memory(priv, s_buf);
+	return ret;
+}
+EXPORT_SYMBOL(hal_ecdsa_data_verify_streaming_update);
+
+FCS_HAL_INT
+hal_ecdsa_data_verify_streaming_final(struct fcs_cmd_context *const k_ctx)
+{
+	FCS_HAL_INT ret = 0;
+	struct fcs_cmd_context ctx;
+	FCS_HAL_VOID *s_buf = NULL;
+	FCS_HAL_U32 s_buf_sz = 0;
+	FCS_HAL_VOID *d_buf = NULL;
+	FCS_HAL_U32 d_buf_sz = 0;
+	FCS_HAL_CHAR *ip_ptr = NULL;
+	FCS_HAL_U32 ip_len = 0;
+
+	fcs_plat_memcpy(&ctx, k_ctx, sizeof(struct fcs_cmd_context));
+
+	s_buf_sz = ctx.ecdsa_sha2_data_verify.src_len;
+	s_buf = priv->plat_data->svc_alloc_memory(priv, s_buf_sz);
+	if (IS_ERR(s_buf)) {
+		ret = -ENOMEM;
+		LOG_ERR("Failed to allocate memory for ECDSA sign src buffer ret: %d\n",
+			ret);
+		return ret;
+	}
+
+	d_buf_sz = FCS_ECDSA_HASH_SIGN_MAX_LEN;
+	d_buf = priv->plat_data->svc_alloc_memory(priv, d_buf_sz);
+	if (IS_ERR(d_buf)) {
+		ret = -ENOMEM;
+		LOG_ERR("Failed to allocate memory for ECDSA sign dst buffer ret: %d\n",
+			ret);
+		goto free_src;
+	}
+
+	ip_ptr = k_ctx->ecdsa_sha2_data_verify.src;
+	ip_len = ctx.ecdsa_sha2_data_verify.user_data_sz;
+
+	k_ctx->ecdsa_sha2_data_verify.src = s_buf;
+	k_ctx->ecdsa_sha2_data_verify.src_len = s_buf_sz;
+	k_ctx->ecdsa_sha2_data_verify.dst = d_buf;
+	k_ctx->ecdsa_sha2_data_verify.src_len = s_buf_sz;
+	k_ctx->ecdsa_sha2_data_verify.dst_len = &d_buf_sz;
+
+	ret = hal_ecdsa_sha2data_verify_upfinal(
+		ip_ptr, ip_len, k_ctx->ecdsa_sha2_data_verify.signature,
+		k_ctx->ecdsa_sha2_data_verify.signature_len,
+		k_ctx->ecdsa_sha2_data_verify.pubkey,
+		k_ctx->ecdsa_sha2_data_verify.pubkey_len, d_buf, d_buf_sz,
+		k_ctx, FCS_DEV_CRYPTO_ECDSA_SHA2_DATA_VERIFY_FINALIZE);
+	if (ret) {
+		LOG_ERR("Failed to perform ECDSA sha2 data sign finalize ret: %d\n",
+			ret);
+		goto free_dst;
+	}
+
+	priv->resp -= RESPONSE_HEADER_SIZE;
+
+	ret = fcs_plat_copy_to_user(ctx.ecdsa_sha2_data_verify.dst_len,
+				    &priv->resp, sizeof(priv->resp));
+	if (ret) {
+		LOG_ERR("Failed to copy ECDSA verify data length to user ret: %d\n",
+			ret);
+		goto free_dst;
+	}
+
+	ret = fcs_plat_copy_to_user(ctx.ecdsa_sha2_data_verify.dst,
+				    d_buf + RESPONSE_HEADER_SIZE, priv->resp);
+	if (ret) {
+		LOG_ERR("Failed to copy ECDSA verify data to user ret: %d\n",
+			ret);
+	}
+
+free_dst:
+	priv->plat_data->svc_free_memory(priv, d_buf);
+free_src:
+	priv->plat_data->svc_free_memory(priv, s_buf);
+
+	return ret;
+}
+EXPORT_SYMBOL(hal_ecdsa_data_verify_streaming_final);
 
 FCS_HAL_INT hal_digest_streaming_init(struct fcs_cmd_context *const k_ctx)
 {

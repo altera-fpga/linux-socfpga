@@ -454,6 +454,33 @@ static FCS_HAL_INT plat_sip_svc_send_request(struct socfpga_fcs_priv *priv,
 		msg->command = COMMAND_FCS_CRYPTO_AES_CRYPT_FINALIZE;
 		break;
 
+	case FCS_DEV_CRYPTO_ECDH_REQUEST_INIT:
+		pr_debug("Sending command: COMMAND_FCS_CRYPTO_ECDH_REQUEST_INIT with session_id: 0x%x, cid: 0x%x, kid: 0x%x, ecc_curve: 0x%x\n",
+			 priv->session_id, k_ctx->ecdh_req.cid,
+			 k_ctx->ecdh_req.kid, k_ctx->ecdh_req.ecc_curve);
+		msg->arg[0] = priv->session_id;
+		msg->arg[1] = k_ctx->ecdh_req.cid;
+		msg->arg[2] = k_ctx->ecdh_req.kid;
+		msg->arg[3] = CRYPTO_ECC_PARAM_SZ;
+		msg->arg[4] = k_ctx->ecdh_req.ecc_curve & FCS_ECC_CURVE_MASK;
+		msg->command = COMMAND_FCS_CRYPTO_ECDH_REQUEST_INIT;
+		no_async_poll = true;
+		break;
+
+	case FCS_DEV_CRYPTO_ECDH_REQUEST_FINALIZE:
+		pr_debug("Sending command: COMMAND_FCS_CRYPTO_ECDH_REQUEST_FINALIZE with session_id: 0x%x, cid: 0x%x, kid: 0x%x, pubkey_len: 0x%x\n",
+			 priv->session_id, k_ctx->ecdh_req.cid,
+			 k_ctx->ecdh_req.kid, k_ctx->ecdh_req.pubkey_len);
+		msg->arg[0] = priv->session_id;
+		msg->arg[1] = k_ctx->ecdh_req.cid;
+		msg->arg[2] = k_ctx->ecdh_req.kid;
+		msg->payload = k_ctx->ecdh_req.pubkey;
+		msg->payload_length = k_ctx->ecdh_req.pubkey_len;
+		msg->payload_output = k_ctx->ecdh_req.sh_secret;
+		msg->payload_length_output = *k_ctx->ecdh_req.sh_secret_len;
+		msg->command = COMMAND_FCS_CRYPTO_ECDH_REQUEST_FINALIZE;
+		break;
+
 	case FCS_DEV_SDOS_DATA_EXT:
 		pr_debug("Sending command: COMMAND_FCS_SDOS_DATA_EXT with session_id: 0x%x, context_id: 0x%x, op_mode: 0x%x, own: 0x%llx\n",
 			 priv->session_id, k_ctx->sdos.context_id,
@@ -467,6 +494,189 @@ static FCS_HAL_INT plat_sip_svc_send_request(struct socfpga_fcs_priv *priv,
 		msg->payload_output = k_ctx->sdos.dst;
 		msg->payload_length_output = *k_ctx->sdos.dst_size;
 		msg->command = COMMAND_FCS_SDOS_DATA_EXT;
+		break;
+
+	case FCS_DEV_CRYPTO_ECDSA_GET_PUBLIC_KEY_INIT:
+		pr_debug("Sending command: COMMAND_FCS_CRYPTO_ECDSA_GET_PUBLIC_KEY_INIT with session_id: 0x%x, context_id: 0x%x, key_id: 0x%x,ecc_curve: 0x%x\n",
+			 priv->session_id, k_ctx->ecdsa_pub_key.context_id,
+			 k_ctx->ecdsa_pub_key.key_id,
+			 k_ctx->ecdsa_pub_key.ecc_curve & FCS_ECC_CURVE_MASK);
+		msg->arg[0] = priv->session_id;
+		msg->arg[1] = k_ctx->ecdsa_pub_key.context_id;
+		msg->arg[2] = k_ctx->ecdsa_pub_key.key_id;
+		msg->arg[3] = CRYPTO_ECC_PARAM_SZ;
+		msg->arg[4] = k_ctx->ecdsa_pub_key.ecc_curve &
+			      FCS_ECC_CURVE_MASK;
+		msg->command = COMMAND_FCS_CRYPTO_ECDSA_GET_PUBLIC_KEY_INIT;
+		no_async_poll = true;
+		break;
+
+	case FCS_DEV_CRYPTO_ECDSA_GET_PUBLIC_KEY_FINALIZE:
+		pr_debug("Sending command: ECDSA_GET_PUBLIC_KEY_FINALIZE with session_id: 0x%x, context_id: 0x%x\n",
+			 priv->session_id, k_ctx->ecdsa_pub_key.context_id);
+		msg->arg[0] = priv->session_id;
+		msg->arg[1] = k_ctx->ecdsa_pub_key.context_id;
+		msg->payload = NULL;
+		msg->payload_length = 0;
+		msg->payload_output = k_ctx->ecdsa_pub_key.pubkey;
+		msg->payload_length_output = *k_ctx->ecdsa_pub_key.pubkey_len;
+		msg->command = COMMAND_FCS_CRYPTO_ECDSA_GET_PUBLIC_KEY_FINALIZE;
+		break;
+
+	case FCS_DEV_CRYPTO_ECDSA_HASH_SIGNING_INIT:
+		pr_debug("Sending command: ECDSA_HASH_SIGNING_INIT with session_id: 0x%x, context_id: 0x%x, key_id: 0x%x, ecc_curve: 0x%x\n",
+			 priv->session_id, k_ctx->ecdsa_hash_sign.context_id,
+			 k_ctx->ecdsa_hash_sign.key_id,
+			 k_ctx->ecdsa_hash_sign.ecc_curve & FCS_ECC_CURVE_MASK);
+		msg->arg[0] = priv->session_id;
+		msg->arg[1] = k_ctx->ecdsa_hash_sign.context_id;
+		msg->arg[2] = k_ctx->ecdsa_hash_sign.key_id;
+		msg->arg[3] = CRYPTO_ECC_PARAM_SZ;
+		msg->arg[4] = k_ctx->ecdsa_hash_sign.ecc_curve &
+			      FCS_ECC_CURVE_MASK;
+		msg->command = COMMAND_FCS_CRYPTO_ECDSA_HASH_SIGNING_INIT;
+		no_async_poll = true;
+		break;
+
+	case FCS_DEV_CRYPTO_ECDSA_HASH_SIGNING_FINALIZE:
+		pr_debug("Sending command: COMMAND_FCS_CRYPTO_ECDSA_HASH_SIGNING_FINALIZE with session_id: 0x%x, context_id: 0x%x, src_len: 0x%x\n",
+			 priv->session_id, k_ctx->ecdsa_hash_sign.context_id,
+			 k_ctx->ecdsa_hash_sign.src_len);
+
+		msg->arg[0] = priv->session_id;
+		msg->arg[1] = k_ctx->ecdsa_hash_sign.context_id;
+		msg->payload = k_ctx->ecdsa_hash_sign.src;
+		msg->payload_length = k_ctx->ecdsa_hash_sign.src_len;
+		msg->payload_output = k_ctx->ecdsa_hash_sign.dst;
+		msg->payload_length_output = *k_ctx->ecdsa_hash_sign.dst_len;
+		msg->command = COMMAND_FCS_CRYPTO_ECDSA_HASH_SIGNING_FINALIZE;
+		break;
+
+	case FCS_DEV_CRYPTO_ECDSA_HASH_VERIFY_INIT:
+		pr_debug("Sending command: COMMAND_FCS_CRYPTO_ECDSA_HASH_VERIFY_INIT with session_id: 0x%x, context_id: 0x%x, key_id: 0x%x, ecc_curve: 0x%x\n",
+			 priv->session_id, k_ctx->ecdsa_hash_verify.context_id,
+			 k_ctx->ecdsa_hash_verify.key_id,
+			 k_ctx->ecdsa_hash_verify.ecc_curve &
+			 FCS_ECC_CURVE_MASK);
+		msg->arg[0] = priv->session_id;
+		msg->arg[1] = k_ctx->ecdsa_hash_verify.context_id;
+		msg->arg[2] = k_ctx->ecdsa_hash_verify.key_id;
+		msg->arg[3] = CRYPTO_ECC_PARAM_SZ;
+		msg->arg[4] = k_ctx->ecdsa_hash_verify.ecc_curve &
+			      FCS_ECC_CURVE_MASK;
+		msg->command = COMMAND_FCS_CRYPTO_ECDSA_HASH_VERIFY_INIT;
+		no_async_poll = true;
+		break;
+
+	case FCS_DEV_CRYPTO_ECDSA_HASH_VERIFY_FINALIZE:
+		pr_debug("Sending command: COMMAND_FCS_CRYPTO_ECDSA_HASH_VERIFY_FINALIZE with session_id: 0x%x, context_id: 0x%x, src_len: 0x%x\n",
+			 priv->session_id, k_ctx->ecdsa_hash_verify.context_id,
+			 k_ctx->ecdsa_hash_verify.src_len);
+		msg->arg[0] = priv->session_id;
+		msg->arg[1] = k_ctx->ecdsa_hash_verify.context_id;
+		msg->payload = k_ctx->ecdsa_hash_verify.src;
+		msg->payload_length = k_ctx->ecdsa_hash_verify.src_len;
+		msg->payload_output = k_ctx->ecdsa_hash_verify.dst;
+		msg->payload_length_output = *k_ctx->ecdsa_hash_verify.dst_len;
+		msg->command = COMMAND_FCS_CRYPTO_ECDSA_HASH_VERIFY_FINALIZE;
+		break;
+
+	case FCS_DEV_CRYPTO_ECDSA_SHA2_DATA_SIGNING_INIT:
+		pr_debug("Sending command: COMMAND_FCS_CRYPTO_ECDSA_SHA2_DATA_SIGNING_INIT with session_id: 0x%x, context_id: 0x%x, key_id: 0x%x, ecc_curve: 0x%x\n",
+			 priv->session_id,
+			 k_ctx->ecdsa_sha2_data_sign.context_id,
+			 k_ctx->ecdsa_sha2_data_sign.key_id,
+			 k_ctx->ecdsa_sha2_data_sign.ecc_curve &
+			 FCS_ECC_CURVE_MASK);
+		msg->arg[0] = priv->session_id;
+		msg->arg[1] = k_ctx->ecdsa_sha2_data_sign.context_id;
+		msg->arg[2] = k_ctx->ecdsa_sha2_data_sign.key_id;
+		msg->arg[3] = CRYPTO_ECC_PARAM_SZ;
+		msg->arg[4] = k_ctx->ecdsa_sha2_data_sign.ecc_curve &
+			      FCS_ECC_CURVE_MASK;
+		msg->command = COMMAND_FCS_CRYPTO_ECDSA_SHA2_DATA_SIGNING_INIT;
+		no_async_poll = true;
+		break;
+
+	case FCS_DEV_CRYPTO_ECDSA_SHA2_DATA_SIGNING_UPDATE:
+		pr_debug("Sending command: COMMAND_FCS_CRYPTO_ECDSA_SHA2_DATA_SIGNING_UPDATE with session_id: 0x%x, context_id: 0x%x, src_len: 0x%x\n",
+			 priv->session_id,
+			 k_ctx->ecdsa_sha2_data_sign.context_id,
+			 k_ctx->ecdsa_sha2_data_sign.src_len);
+		msg->arg[0] = priv->session_id;
+		msg->arg[1] = k_ctx->ecdsa_sha2_data_sign.context_id;
+		msg->payload = k_ctx->ecdsa_sha2_data_sign.src;
+		msg->payload_length = k_ctx->ecdsa_sha2_data_sign.src_len;
+		msg->payload_output = k_ctx->ecdsa_sha2_data_sign.dst;
+		msg->payload_length_output =
+			*k_ctx->ecdsa_sha2_data_sign.dst_len;
+		msg->command =
+			COMMAND_FCS_CRYPTO_ECDSA_SHA2_DATA_SIGNING_UPDATE;
+		break;
+
+	case FCS_DEV_CRYPTO_ECDSA_SHA2_DATA_SIGNING_FINALIZE:
+		pr_debug("Sending command: COMMAND_FCS_CRYPTO_ECDSA_SHA2_DATA_SIGNING_FINALIZE with session_id: 0x%x, context_id: 0x%x, src_len: 0x%x\n",
+			 priv->session_id,
+			 k_ctx->ecdsa_sha2_data_sign.context_id,
+			 k_ctx->ecdsa_sha2_data_sign.src_len);
+		msg->arg[0] = priv->session_id;
+		msg->arg[1] = k_ctx->ecdsa_sha2_data_sign.context_id;
+		msg->payload = k_ctx->ecdsa_sha2_data_sign.src;
+		msg->payload_length = k_ctx->ecdsa_sha2_data_sign.src_len;
+		msg->payload_output = k_ctx->ecdsa_sha2_data_sign.dst;
+		msg->payload_length_output =
+			*k_ctx->ecdsa_sha2_data_sign.dst_len;
+		msg->command =
+			COMMAND_FCS_CRYPTO_ECDSA_SHA2_DATA_SIGNING_FINALIZE;
+		break;
+
+	case FCS_DEV_CRYPTO_ECDSA_SHA2_DATA_VERIFY_INIT:
+		pr_debug("Sending command: COMMAND_FCS_CRYPTO_ECDSA_SHA2_VERIFY_INIT with session_id: 0x%x, context_id: 0x%x, key_id: 0x%x, ecc_curve: 0x%x\n",
+			 priv->session_id,
+			 k_ctx->ecdsa_sha2_data_verify.context_id,
+			 k_ctx->ecdsa_sha2_data_verify.key_id,
+			 k_ctx->ecdsa_sha2_data_verify.ecc_curve &
+			 FCS_ECC_CURVE_MASK);
+		msg->arg[0] = priv->session_id;
+		msg->arg[1] = k_ctx->ecdsa_sha2_data_verify.context_id;
+		msg->arg[2] = k_ctx->ecdsa_sha2_data_verify.key_id;
+		msg->arg[3] = CRYPTO_ECC_PARAM_SZ;
+		msg->arg[4] = k_ctx->ecdsa_sha2_data_verify.ecc_curve &
+			      FCS_ECC_CURVE_MASK;
+		msg->command = COMMAND_FCS_CRYPTO_ECDSA_SHA2_VERIFY_INIT;
+		no_async_poll = true;
+		break;
+
+	case FCS_DEV_CRYPTO_ECDSA_SHA2_DATA_VERIFY_FINALIZE:
+		pr_debug("Sending command: COMMAND_FCS_CRYPTO_ECDSA_SHA2_VERIFY_FINALIZE with session_id: 0x%x, context_id: 0x%x, user_data_sz: 0x%x\n",
+			priv->session_id,
+			k_ctx->ecdsa_sha2_data_verify.context_id,
+			k_ctx->ecdsa_sha2_data_verify.user_data_sz);
+		msg->arg[0] = priv->session_id;
+		msg->arg[1] = k_ctx->ecdsa_sha2_data_verify.context_id;
+		msg->arg[2] = k_ctx->ecdsa_sha2_data_verify.user_data_sz;
+		msg->payload = k_ctx->ecdsa_sha2_data_verify.src;
+		msg->payload_length = k_ctx->ecdsa_sha2_data_verify.src_len;
+		msg->payload_output = k_ctx->ecdsa_sha2_data_verify.dst;
+		msg->payload_length_output =
+			*k_ctx->ecdsa_sha2_data_verify.dst_len;
+		msg->command = COMMAND_FCS_CRYPTO_ECDSA_SHA2_VERIFY_FINALIZE;
+		break;
+
+	case FCS_DEV_CRYPTO_ECDSA_SHA2_DATA_VERIFY_UPDATE:
+		pr_debug("Sending command: COMMAND_FCS_CRYPTO_ECDSA_SHA2_VERIFY_UPDATE with session_id: 0x%x, context_id: 0x%x, user_data_sz: 0x%x\n",
+			priv->session_id,
+			k_ctx->ecdsa_sha2_data_verify.context_id,
+			k_ctx->ecdsa_sha2_data_verify.user_data_sz);
+		msg->arg[0] = priv->session_id;
+		msg->arg[1] = k_ctx->ecdsa_sha2_data_verify.context_id;
+		msg->arg[2] = k_ctx->ecdsa_sha2_data_verify.user_data_sz;
+		msg->payload = k_ctx->ecdsa_sha2_data_verify.src;
+		msg->payload_length = k_ctx->ecdsa_sha2_data_verify.src_len;
+		msg->payload_output = k_ctx->ecdsa_sha2_data_verify.dst;
+		msg->payload_length_output =
+			*k_ctx->ecdsa_sha2_data_verify.dst_len;
+		msg->command = COMMAND_FCS_CRYPTO_ECDSA_SHA2_VERIFY_UPDATE;
 		break;
 
 	case FCS_DEV_HPS_IMG_VALIDATE_REQUEST:
