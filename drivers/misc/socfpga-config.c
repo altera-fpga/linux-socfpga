@@ -590,6 +590,191 @@ out:
 	return ret;
 }
 
+static ssize_t qspi_open_store(struct device *dev,
+			       struct device_attribute *attr, const char *buf,
+			       size_t buf_size)
+{
+	struct fcs_cmd_context *const u_ctx = *(struct fcs_cmd_context **)buf;
+	struct fcs_cmd_context *k_ctx;
+	int ret = buf_size;
+
+	k_ctx = hal_get_fcs_cmd_ctx();
+	if (!k_ctx) {
+		pr_err("Failed get context. Context is in use\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	if (copy_from_user(k_ctx, u_ctx, sizeof(struct fcs_cmd_context))) {
+		pr_err("Failed to copy context from user space\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	ret = hal_qspi_open(k_ctx);
+	if (ret)
+		pr_err("Failed to open qspi\n");
+
+out:
+	hal_release_fcs_cmd_ctx(k_ctx);
+
+	return ret;
+}
+
+static ssize_t qspi_close_store(struct device *dev,
+				struct device_attribute *attr, const char *buf,
+				size_t buf_size)
+{
+	struct fcs_cmd_context *const u_ctx = *(struct fcs_cmd_context **)buf;
+	struct fcs_cmd_context *k_ctx;
+	int ret = buf_size;
+
+	k_ctx = hal_get_fcs_cmd_ctx();
+	if (!k_ctx) {
+		pr_err("Failed get context. Context is in use\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	if (copy_from_user(k_ctx, u_ctx, sizeof(struct fcs_cmd_context))) {
+		pr_err("Failed to copy context from user space\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	ret = hal_qspi_close(k_ctx);
+	if (ret)
+		pr_err("Failed to close qspi\n");
+
+out:
+	hal_release_fcs_cmd_ctx(k_ctx);
+
+	return ret;
+}
+
+static ssize_t qspi_cs_store(struct device *dev, struct device_attribute *attr,
+			     const char *buf, size_t buf_size)
+{
+	struct fcs_cmd_context *const u_ctx = *(struct fcs_cmd_context **)buf;
+	struct fcs_cmd_context *k_ctx;
+	int ret = buf_size;
+
+	k_ctx = hal_get_fcs_cmd_ctx();
+	if (!k_ctx) {
+		pr_err("Failed get context. Context is in use\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	if (copy_from_user(k_ctx, u_ctx, sizeof(struct fcs_cmd_context))) {
+		pr_err("Failed to copy context from user space\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	ret = hal_qspi_cs(k_ctx);
+	if (ret)
+		pr_err("Failed to set qspi cs\n");
+
+out:
+	hal_release_fcs_cmd_ctx(k_ctx);
+
+	return ret;
+}
+
+static ssize_t qspi_read_store(struct device *dev,
+			       struct device_attribute *attr, const char *buf,
+			       size_t buf_size)
+{
+	struct fcs_cmd_context *const u_ctx = *(struct fcs_cmd_context **)buf;
+	struct fcs_cmd_context *k_ctx;
+	int ret = buf_size;
+
+	k_ctx = hal_get_fcs_cmd_ctx();
+	if (!k_ctx) {
+		pr_err("Failed get context. Context is in use\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	if (copy_from_user(k_ctx, u_ctx, sizeof(struct fcs_cmd_context))) {
+		pr_err("Failed to copy context from user space\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	ret = hal_qspi_read(k_ctx);
+	if (ret)
+		pr_err("Failed to read qspi\n");
+
+out:
+	hal_release_fcs_cmd_ctx(k_ctx);
+
+	return ret;
+}
+
+static ssize_t qspi_write_store(struct device *dev,
+				struct device_attribute *attr, const char *buf,
+				size_t buf_size)
+{
+	struct fcs_cmd_context *const u_ctx = *(struct fcs_cmd_context **)buf;
+	struct fcs_cmd_context *k_ctx;
+	int ret = buf_size;
+
+	k_ctx = hal_get_fcs_cmd_ctx();
+	if (!k_ctx) {
+		pr_err("Failed get context. Context is in use\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	if (copy_from_user(k_ctx, u_ctx, sizeof(struct fcs_cmd_context))) {
+		pr_err("Failed to copy context from user space\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	ret = hal_qspi_write(k_ctx);
+	if (ret)
+		pr_err("Failed to write qspi\n");
+
+out:
+	hal_release_fcs_cmd_ctx(k_ctx);
+
+	return ret;
+}
+
+static ssize_t qspi_erase_store(struct device *dev,
+				struct device_attribute *attr, const char *buf,
+				size_t buf_size)
+{
+	struct fcs_cmd_context *const u_ctx = *(struct fcs_cmd_context **)buf;
+	struct fcs_cmd_context *k_ctx;
+	int ret = buf_size;
+
+	k_ctx = hal_get_fcs_cmd_ctx();
+	if (!k_ctx) {
+		pr_err("Failed get context. Context is in use\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	if (copy_from_user(k_ctx, u_ctx, sizeof(struct fcs_cmd_context))) {
+		pr_err("Failed to copy context from user space\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	ret = hal_qspi_erase(k_ctx);
+	if (ret)
+		pr_err("Failed to erase qspi\n");
+
+out:
+	hal_release_fcs_cmd_ctx(k_ctx);
+
+	return ret;
+}
+
 static ssize_t jtag_idcode_store(struct device *dev,
 				 struct device_attribute *attr, const char *buf,
 				 size_t buf_size)
@@ -1407,6 +1592,12 @@ static DEVICE_ATTR_WO(atstn_cert_reload);
 static DEVICE_ATTR_WO(mctp_req);
 static DEVICE_ATTR_WO(jtag_idcode);
 static DEVICE_ATTR_WO(device_identity);
+static DEVICE_ATTR_WO(qspi_open);
+static DEVICE_ATTR_WO(qspi_close);
+static DEVICE_ATTR_WO(qspi_cs);
+static DEVICE_ATTR_WO(qspi_read);
+static DEVICE_ATTR_WO(qspi_write);
+static DEVICE_ATTR_WO(qspi_erase);
 static DEVICE_ATTR_WO(ecdsa_get_pubkey);
 static DEVICE_ATTR_WO(ecsda_hash_sign);
 static DEVICE_ATTR_WO(ecdsa_hash_verify);
@@ -1456,6 +1647,12 @@ static struct attribute *fcs_config_attrs[] = {
 	&dev_attr_mctp_req.attr,
 	&dev_attr_jtag_idcode.attr,
 	&dev_attr_device_identity.attr,
+	&dev_attr_qspi_open.attr,
+	&dev_attr_qspi_close.attr,
+	&dev_attr_qspi_cs.attr,
+	&dev_attr_qspi_read.attr,
+	&dev_attr_qspi_write.attr,
+	&dev_attr_qspi_erase.attr,
 	&dev_attr_ecdsa_get_pubkey.attr,
 	&dev_attr_ecsda_hash_sign.attr,
 	&dev_attr_ecdsa_hash_verify.attr,

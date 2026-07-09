@@ -528,6 +528,50 @@ static FCS_HAL_INT plat_sip_svc_send_request(struct socfpga_fcs_priv *priv,
 			*k_ctx->device_identity.identity_len;
 		break;
 
+	case FCS_DEV_QSPI_OPEN:
+		pr_debug("Sending command: COMMAND_QSPI_OPEN\n");
+		msg->command = COMMAND_QSPI_OPEN;
+		break;
+
+	case FCS_DEV_QSPI_CLOSE:
+		pr_debug("Sending command: COMMAND_QSPI_CLOSE\n");
+		msg->command = COMMAND_QSPI_CLOSE;
+		break;
+
+	case FCS_DEV_QSPI_CS:
+		pr_debug("Sending command: COMMAND_QSPI_SET_CS with chipsel: 0x%x\n",
+			 k_ctx->qspi_cs.chipsel);
+		msg->command = COMMAND_QSPI_SET_CS;
+		msg->arg[0] = (k_ctx->qspi_cs.chipsel >> 28) & 0xF;
+		msg->arg[1] = (k_ctx->qspi_cs.chipsel >> 27) & 0x1;
+		msg->arg[2] = (k_ctx->qspi_cs.chipsel >> 26) & 0x1;
+		break;
+
+	case FCS_DEV_QSPI_READ:
+		pr_debug("Sending command: COMMAND_QSPI_READ with qspi_addr: 0x%x, qspi_len: 0x%x\n",
+			 k_ctx->qspi_read.qspi_addr, k_ctx->qspi_read.qspi_len);
+		msg->command = COMMAND_QSPI_READ;
+		msg->arg[0] = k_ctx->qspi_read.qspi_addr;
+		msg->payload_output = k_ctx->qspi_read.qspi_data;
+		msg->payload_length_output = k_ctx->qspi_read.qspi_len * 4;
+		break;
+
+	case FCS_DEV_QSPI_WRITE:
+		pr_debug("Sending command: COMMAND_QSPI_WRITE with qspi_data_len: 0x%x\n",
+			 *k_ctx->qspi_write.qspi_data_len);
+		msg->command = COMMAND_QSPI_WRITE;
+		msg->payload = k_ctx->qspi_write.qspi_data;
+		msg->payload_length = *k_ctx->qspi_write.qspi_data_len;
+		break;
+
+	case FCS_DEV_QSPI_ERASE:
+		pr_debug("Sending command: COMMAND_QSPI_ERASE with qspi_addr: 0x%x, len: 0x%x\n",
+			 k_ctx->qspi_erase.qspi_addr, k_ctx->qspi_erase.len);
+		msg->command = COMMAND_QSPI_ERASE;
+		msg->arg[0] = k_ctx->qspi_erase.qspi_addr;
+		msg->arg[1] = k_ctx->qspi_erase.len * 4;
+		break;
+
 	case FCS_DEV_SDOS_DATA_EXT:
 		pr_debug("Sending command: COMMAND_FCS_SDOS_DATA_EXT with session_id: 0x%x, context_id: 0x%x, op_mode: 0x%x, own: 0x%llx\n",
 			 priv->session_id, k_ctx->sdos.context_id,

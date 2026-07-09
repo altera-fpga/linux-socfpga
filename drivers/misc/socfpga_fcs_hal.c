@@ -2038,6 +2038,276 @@ free_dest:
 }
 EXPORT_SYMBOL(hal_get_device_identity);
 
+FCS_HAL_INT hal_qspi_open(struct fcs_cmd_context *const k_ctx)
+{
+	FCS_HAL_INT ret = 0;
+	struct fcs_cmd_context ctx;
+
+	if (k_ctx)
+		fcs_plat_memcpy(&ctx, k_ctx, sizeof(struct fcs_cmd_context));
+
+	ret = priv->plat_data->svc_send_request(priv, FCS_DEV_QSPI_OPEN,
+						FCS_REQUEST_TIMEOUT);
+	if (ret) {
+		LOG_ERR("Failed to send the cmd=%d,ret=%d\n", FCS_DEV_QSPI_OPEN,
+			ret);
+		return ret;
+	}
+
+	if (priv->status) {
+		ret = -EIO;
+		LOG_ERR("Mailbox error, Failed to open QSPI ret: %d\n", ret);
+	}
+
+	if (k_ctx) {
+		ret = fcs_plat_copy_to_user(ctx.error_code_addr, &priv->status,
+					    sizeof(priv->status));
+		if (ret) {
+			LOG_ERR("Failed to copy mailbox status code to user ret: %d\n",
+				ret);
+		}
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(hal_qspi_open);
+
+FCS_HAL_INT hal_qspi_close(struct fcs_cmd_context *const k_ctx)
+{
+	FCS_HAL_INT ret = 0;
+	struct fcs_cmd_context ctx;
+
+	if (k_ctx)
+		fcs_plat_memcpy(&ctx, k_ctx, sizeof(struct fcs_cmd_context));
+
+	ret = priv->plat_data->svc_send_request(priv, FCS_DEV_QSPI_CLOSE,
+						FCS_REQUEST_TIMEOUT);
+
+	if (ret) {
+		LOG_ERR("Failed to send the cmd=%d,ret=%d\n",
+			FCS_DEV_QSPI_CLOSE, ret);
+		return ret;
+	}
+
+	if (priv->status) {
+		ret = -EIO;
+		LOG_ERR("Mailbox error, Failed to close QSPI ret: %d\n", ret);
+	}
+
+	if (k_ctx) {
+		ret = fcs_plat_copy_to_user(ctx.error_code_addr, &priv->status,
+					    sizeof(priv->status));
+		if (ret) {
+			LOG_ERR("Failed to copy mailbox status code to user ret: %d\n",
+				ret);
+		}
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(hal_qspi_close);
+
+FCS_HAL_INT hal_qspi_cs(struct fcs_cmd_context *const k_ctx)
+{
+	FCS_HAL_INT ret = 0;
+	struct fcs_cmd_context ctx;
+
+	if (k_ctx)
+		fcs_plat_memcpy(&ctx, k_ctx, sizeof(struct fcs_cmd_context));
+
+	ret = priv->plat_data->svc_send_request(priv, FCS_DEV_QSPI_CS,
+						FCS_REQUEST_TIMEOUT);
+
+	if (ret) {
+		LOG_ERR("Failed to send the cmd=%d,ret=%d\n", FCS_DEV_QSPI_CS,
+			ret);
+		return ret;
+	}
+
+	if (priv->status) {
+		ret = -EIO;
+		LOG_ERR("Mailbox error, Failed to perform QSPI CS ret: %d\n",
+			ret);
+	}
+
+	if (k_ctx) {
+		ret = fcs_plat_copy_to_user(ctx.error_code_addr, &priv->status,
+					    sizeof(priv->status));
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(hal_qspi_cs);
+
+FCS_HAL_INT hal_qspi_read(struct fcs_cmd_context *const k_ctx)
+{
+	FCS_HAL_INT ret = 0;
+	struct fcs_cmd_context ctx;
+	FCS_HAL_VOID *d_buf = NULL;
+	FCS_HAL_U32 resp_len = QSPI_READ_LEN_MAX;
+
+	fcs_plat_memcpy(&ctx, k_ctx, sizeof(struct fcs_cmd_context));
+
+	d_buf = priv->plat_data->svc_alloc_memory(priv, resp_len);
+	if (IS_ERR(d_buf)) {
+		ret = -ENOMEM;
+		LOG_ERR("Failed to allocate memory for QSPI read kernel buffer ret: %d\n",
+			ret);
+		return ret;
+	}
+
+
+	k_ctx->qspi_read.qspi_data = d_buf;
+	k_ctx->qspi_read.qspi_data_len = &resp_len;
+
+	ret = priv->plat_data->svc_send_request(priv, FCS_DEV_QSPI_READ,
+						FCS_REQUEST_TIMEOUT);
+
+	if (ret) {
+		LOG_ERR("Failed to send the cmd=%d,ret=%d\n", FCS_DEV_QSPI_READ,
+			ret);
+		goto free_dest;
+	}
+
+	if (priv->status) {
+		ret = -EIO;
+		LOG_ERR("Mailbox error, Failed to read QSPI ret: %d\n", ret);
+		goto copy_mbox_status;
+	}
+
+	/* requested size and response is not matching */
+	if (ctx.qspi_read.qspi_len != priv->resp / 4) {
+		LOG_ERR("QSPI read req and resp size is not matching resp_size:0x%x\n",
+			priv->resp);
+		ret = -EFAULT;
+		goto copy_mbox_status;
+	}
+
+	ret = fcs_plat_copy_to_user(ctx.qspi_read.qspi_data, d_buf, priv->resp);
+	if (ret) {
+		LOG_ERR("Failed to copy QSPI read data to user ret: %d\n", ret);
+		goto copy_mbox_status;
+	}
+
+copy_mbox_status:
+	if (fcs_plat_copy_to_user(ctx.error_code_addr, &priv->status,
+				  sizeof(priv->status))) {
+		LOG_ERR("Failed to copy mailbox status code to user ret: %d\n",
+			ret);
+	}
+
+free_dest:
+	priv->plat_data->svc_free_memory(priv, d_buf);
+
+	return 0;
+}
+EXPORT_SYMBOL(hal_qspi_read);
+
+FCS_HAL_INT hal_qspi_write(struct fcs_cmd_context *const k_ctx)
+{
+	FCS_HAL_INT ret = 0;
+	struct fcs_cmd_context ctx;
+	FCS_HAL_VOID *s_buf = NULL;
+	FCS_HAL_U32 s_buf_sz = 0;
+
+	fcs_plat_memcpy(&ctx, k_ctx, sizeof(struct fcs_cmd_context));
+
+	/* s_buf_sz--> (number of words * 4) + 4 bytes for qspi addr + 4 bytes qspi write len */
+	s_buf_sz = ctx.qspi_write.qspi_len * WORDS_TO_BYTES_SIZE + 8;
+
+	s_buf = priv->plat_data->svc_alloc_memory(priv, s_buf_sz);
+	if (IS_ERR(s_buf)) {
+		ret = -ENOMEM;
+		LOG_ERR("Failed to allocate memory for QSPI write kernel buffer ret: %d\n",
+			ret);
+		return ret;
+	}
+
+	ret = fcs_plat_copy_from_user(s_buf, &ctx.qspi_write.qspi_addr, 4);
+	if (ret) {
+		LOG_ERR("Failed to copy QSPI write address from user to kernel buffer ret: %d\n",
+			ret);
+		goto free_src_mem;
+	}
+
+	ret = fcs_plat_copy_from_user(s_buf + 4, &ctx.qspi_write.qspi_len, 4);
+	if (ret) {
+		LOG_ERR("Failed to copy QSPI write length from user to kernel buffer ret: %d\n",
+			ret);
+		goto free_src_mem;
+	}
+
+	ret = fcs_plat_copy_from_user(s_buf + 8, ctx.qspi_write.qspi_data,
+				      ctx.qspi_write.qspi_len * 4);
+	if (ret) {
+		LOG_ERR("Failed to copy data from user to kernel buffer ret: %d\n",
+			ret);
+		goto free_src_mem;
+	}
+
+	k_ctx->qspi_write.qspi_data = s_buf;
+	k_ctx->qspi_write.qspi_data_len = &s_buf_sz;
+
+	ret = priv->plat_data->svc_send_request(priv, FCS_DEV_QSPI_WRITE,
+						FCS_REQUEST_TIMEOUT);
+
+	if (ret) {
+		LOG_ERR("Failed to send the cmd=%d,ret=%d\n",
+			FCS_DEV_QSPI_WRITE, ret);
+		goto free_src_mem;
+	}
+
+	if (priv->status) {
+		ret = -EIO;
+		LOG_ERR("Mailbox error, Failed to write QSPI ret: %d\n", ret);
+	}
+
+	ret = fcs_plat_copy_to_user(ctx.error_code_addr, &priv->status,
+				    sizeof(priv->status));
+	if (ret) {
+		LOG_ERR("Failed to copy mailbox status code to user ret: %d\n",
+			ret);
+	}
+
+free_src_mem:
+	priv->plat_data->svc_free_memory(priv, s_buf);
+
+	return 0;
+}
+EXPORT_SYMBOL(hal_qspi_write);
+
+FCS_HAL_INT hal_qspi_erase(struct fcs_cmd_context *const k_ctx)
+{
+	FCS_HAL_INT ret = 0;
+	struct fcs_cmd_context ctx;
+
+	fcs_plat_memcpy(&ctx, k_ctx, sizeof(struct fcs_cmd_context));
+
+	ret = priv->plat_data->svc_send_request(priv, FCS_DEV_QSPI_ERASE,
+						FCS_REQUEST_TIMEOUT);
+
+	if (ret) {
+		LOG_ERR("Failed to send the cmd=%d,ret=%d\n",
+			FCS_DEV_QSPI_ERASE, ret);
+		return ret;
+	}
+
+	if (priv->status) {
+		ret = -EIO;
+		LOG_ERR("Mailbox error, Failed to erase QSPI ret: %d\n", ret);
+	}
+
+	ret = fcs_plat_copy_to_user(ctx.error_code_addr, &priv->status,
+				    sizeof(priv->status));
+	if (ret) {
+		LOG_ERR("Failed to copy mailbox status code to user ret: %d\n",
+			ret);
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(hal_qspi_erase);
+
 FCS_HAL_INT hal_sdos_crypt(struct fcs_cmd_context *const k_ctx)
 {
 	FCS_HAL_VOID *s_buf = NULL, *d_buf = NULL;
