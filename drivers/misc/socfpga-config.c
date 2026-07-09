@@ -258,6 +258,98 @@ out:
 	return ret;
 }
 
+static ssize_t prov_data_store(struct device *dev,
+			       struct device_attribute *attr, const char *buf,
+			       size_t buf_size)
+{
+	struct fcs_cmd_context *const u_ctx = *(struct fcs_cmd_context **)buf;
+	struct fcs_cmd_context *k_ctx;
+	int ret = buf_size;
+
+	k_ctx = hal_get_fcs_cmd_ctx();
+	if (!k_ctx) {
+		pr_err("Failed get context. Context is in use\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	if (copy_from_user(k_ctx, u_ctx, sizeof(struct fcs_cmd_context))) {
+		pr_err("Failed to copy context from user space\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	ret = hal_get_provision_data(k_ctx);
+	if (ret)
+		pr_err("Failed to get provision data\n");
+
+out:
+	hal_release_fcs_cmd_ctx(k_ctx);
+
+	return ret;
+}
+
+static ssize_t ctr_set_store(struct device *dev, struct device_attribute *attr,
+			     const char *buf, size_t buf_size)
+{
+	struct fcs_cmd_context *const u_ctx = *(struct fcs_cmd_context **)buf;
+	struct fcs_cmd_context *k_ctx;
+	int ret = buf_size;
+
+	k_ctx = hal_get_fcs_cmd_ctx();
+	if (!k_ctx) {
+		pr_err("Failed get context. Context is in use\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	if (copy_from_user(k_ctx, u_ctx, sizeof(struct fcs_cmd_context))) {
+		pr_err("Failed to copy context from user space\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	ret = hal_counter_set(k_ctx);
+	if (ret)
+		pr_err("Failed to set counter\n");
+
+out:
+	hal_release_fcs_cmd_ctx(k_ctx);
+
+	return ret;
+}
+
+static ssize_t ctr_set_preauth_store(struct device *dev,
+				     struct device_attribute *attr,
+				     const char *buf, size_t buf_size)
+{
+	struct fcs_cmd_context *const u_ctx = *(struct fcs_cmd_context **)buf;
+	struct fcs_cmd_context *k_ctx;
+	int ret = buf_size;
+
+	k_ctx = hal_get_fcs_cmd_ctx();
+	if (!k_ctx) {
+		pr_err("Failed get context. Context is in use\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	if (copy_from_user(k_ctx, u_ctx, sizeof(struct fcs_cmd_context))) {
+		pr_err("Failed to copy context from user space\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	ret = hal_counter_set_preauth(k_ctx);
+	if (ret)
+		pr_err("Failed to set counter preauth\n");
+
+out:
+	hal_release_fcs_cmd_ctx(k_ctx);
+
+	return ret;
+}
+
 static ssize_t context_info_store(struct device *dev,
 				  struct device_attribute *attr,
 				  const char *buf, size_t buf_size)
@@ -277,6 +369,37 @@ static ssize_t context_info_store(struct device *dev,
 		pr_err("Failed to copy context from user space\n");
 		ret = -EFAULT;
 	}
+
+out:
+	hal_release_fcs_cmd_ctx(k_ctx);
+
+	return ret;
+}
+
+static ssize_t hps_image_validate_store(struct device *dev,
+					struct device_attribute *attr,
+					const char *buf, size_t buf_size)
+{
+	struct fcs_cmd_context *const u_ctx = *(struct fcs_cmd_context **)buf;
+	struct fcs_cmd_context *k_ctx;
+	int ret = buf_size;
+
+	k_ctx = hal_get_fcs_cmd_ctx();
+	if (!k_ctx) {
+		pr_err("Failed get context. Context is in use\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	if (copy_from_user(k_ctx, u_ctx, sizeof(struct fcs_cmd_context))) {
+		pr_err("Failed to copy context from user space\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	ret = hal_hps_img_validate(k_ctx);
+	if (ret)
+		pr_err("Failed to validate HPS image\n");
 
 out:
 	hal_release_fcs_cmd_ctx(k_ctx);
@@ -308,6 +431,10 @@ static DEVICE_ATTR_WO(remove_key);
 static DEVICE_ATTR_WO(key_info);
 static DEVICE_ATTR_WO(create_key);
 static DEVICE_ATTR_WO(hkdf_req);
+static DEVICE_ATTR_WO(prov_data);
+static DEVICE_ATTR_WO(ctr_set);
+static DEVICE_ATTR_WO(ctr_set_preauth);
+static DEVICE_ATTR_WO(hps_image_validate);
 static DEVICE_ATTR_RO(atf_version);
 static DEVICE_ATTR_RO(platform);
 
@@ -321,6 +448,10 @@ static struct attribute *fcs_config_attrs[] = {
 	&dev_attr_key_info.attr,
 	&dev_attr_create_key.attr,
 	&dev_attr_hkdf_req.attr,
+	&dev_attr_prov_data.attr,
+	&dev_attr_ctr_set.attr,
+	&dev_attr_ctr_set_preauth.attr,
+	&dev_attr_hps_image_validate.attr,
 	&dev_attr_atf_version.attr,
 	&dev_attr_platform.attr,
 	NULL

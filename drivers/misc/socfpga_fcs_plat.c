@@ -273,6 +273,46 @@ static FCS_HAL_INT plat_sip_svc_send_request(struct socfpga_fcs_priv *priv,
 		msg->command = COMMAND_FCS_CRYPTO_HKDF_REQUEST;
 		break;
 
+	case FCS_DEV_GET_PROVISION_DATA:
+		pr_debug("Sending command: COMMAND_FCS_GET_PROVISION_DATA\n");
+		msg->payload_output = k_ctx->prov_data.data;
+		msg->payload_length_output = *k_ctx->prov_data.data_len;
+		msg->command = COMMAND_FCS_GET_PROVISION_DATA;
+		break;
+
+	case FCS_DEV_COUNTER_SET:
+		pr_debug("Sending command: COMMAND_FCS_SEND_CERTIFICATE\n");
+		msg->payload = k_ctx->ctr_set.ccert;
+		msg->payload_length = k_ctx->ctr_set.ccert_len;
+		msg->command = COMMAND_FCS_SEND_CERTIFICATE;
+		break;
+
+	case FCS_DEV_COUNTER_SET_POLL_SERVICE:
+		pr_debug("Sending command: COMMAND_POLL_SERVICE_STATUS\n");
+		msg->payload = k_ctx->ctr_set.status;
+		msg->payload_length = *k_ctx->ctr_set.status_len;
+		msg->command = COMMAND_POLL_SERVICE_STATUS;
+		break;
+
+	case FCS_DEV_COUNTER_SET_PREAUTHORIZED:
+		pr_debug("Sending command: COMMAND_FCS_COUNTER_SET_PREAUTHORIZED with ctr_type: 0x%x, ctr_val: 0x%x, test: 0x%x\n",
+			 k_ctx->ctr_set_preauth.ctr_type,
+			 k_ctx->ctr_set_preauth.ctr_val,
+			 k_ctx->ctr_set_preauth.test);
+		msg->arg[0] = k_ctx->ctr_set_preauth.ctr_type;
+		msg->arg[1] = k_ctx->ctr_set_preauth.ctr_val;
+		msg->arg[2] = k_ctx->ctr_set_preauth.test;
+		msg->command = COMMAND_FCS_COUNTER_SET_PREAUTHORIZED;
+		break;
+
+	case FCS_DEV_HPS_IMG_VALIDATE_REQUEST:
+		pr_debug("Sending command: COMMAND_FCS_SEND_CERTIFICATE with vab_cert_len: 0x%x\n",
+			k_ctx->hps_img_validate.vab_cert_len);
+		msg->payload = k_ctx->hps_img_validate.vab_cert;
+		msg->payload_length = k_ctx->hps_img_validate.vab_cert_len;
+		msg->command = COMMAND_FCS_SEND_CERTIFICATE;
+		break;
+
 	default:
 		pr_err("Unknown command: 0x%x\n", command);
 		ret = -EINVAL;

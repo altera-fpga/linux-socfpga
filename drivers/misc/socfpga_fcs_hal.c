@@ -509,6 +509,178 @@ free_mem:
 }
 EXPORT_SYMBOL(hal_create_key);
 
+FCS_HAL_INT hal_get_provision_data(struct fcs_cmd_context *const k_ctx)
+{
+	FCS_HAL_INT ret = 0;
+	FCS_HAL_U32 data_len = CRYPTO_PROVISION_DATA_MAX_SZ;
+	FCS_HAL_VOID *d_buf = NULL;
+	struct fcs_cmd_context ctx;
+
+	fcs_plat_memcpy(&ctx, k_ctx, sizeof(struct fcs_cmd_context));
+
+	d_buf = priv->plat_data->svc_alloc_memory(priv, data_len);
+	if (IS_ERR(d_buf)) {
+		ret = -ENOMEM;
+		LOG_ERR("Failed to allocate memory for provision data ret: %d\n",
+			ret);
+		return ret;
+	}
+
+	k_ctx->prov_data.data = d_buf;
+	k_ctx->prov_data.data_len = &data_len;
+
+	ret = priv->plat_data->svc_send_request(
+		priv, FCS_DEV_GET_PROVISION_DATA, FCS_REQUEST_TIMEOUT);
+	if (ret) {
+		LOG_ERR("Failed to send the cmd=%d,ret=%d\n",
+			FCS_DEV_GET_PROVISION_DATA, ret);
+		goto free_dest;
+	}
+
+	if (priv->status) {
+		ret = -EIO;
+		LOG_ERR("Mailbox error, get provision data request Failed ret: %d\n",
+			ret);
+		goto copy_mbox_status;
+	}
+
+	ret = fcs_plat_copy_to_user(ctx.prov_data.data, d_buf, priv->resp);
+	if (ret) {
+		LOG_ERR("Failed to copy provision data to user ret: %d\n", ret);
+		goto copy_mbox_status;
+	}
+
+	ret = fcs_plat_copy_to_user(ctx.prov_data.data_len, &priv->resp,
+				    sizeof(priv->resp));
+	if (ret) {
+		LOG_ERR("Failed to copy provision data length to user ret: %d\n",
+			ret);
+		goto copy_mbox_status;
+	}
+
+copy_mbox_status:
+	ret = fcs_plat_copy_to_user(ctx.error_code_addr, &priv->status,
+				    sizeof(priv->status));
+	if (ret)
+		LOG_ERR("Failed to copy mailbox status code to user ret: %d\n",
+			ret);
+
+free_dest:
+	priv->plat_data->svc_free_memory(priv, d_buf);
+
+	return ret;
+}
+EXPORT_SYMBOL(hal_get_provision_data);
+
+FCS_HAL_INT hal_counter_set(struct fcs_cmd_context *const k_ctx)
+{
+	FCS_HAL_INT tsz, datasz;
+	FCS_HAL_INT ret = 0;
+	FCS_HAL_VOID *s_buf = NULL;
+	struct fcs_cmd_context ctx;
+
+	fcs_plat_memcpy(&ctx, k_ctx, sizeof(struct fcs_cmd_context));
+
+	/* Allocate memory for certificate + test word */
+	tsz = sizeof(FCS_HAL_U32);
+	datasz = ctx.ctr_set.ccert_len + tsz;
+
+	s_buf = priv->plat_data->svc_alloc_memory(priv, datasz);
+	if (IS_ERR(s_buf)) {
+		ret = -ENOMEM;
+		LOG_ERR("Failed to allocate memory for counter set kernel buffer ret: %d\n",
+			ret);
+		return ret;
+	}
+
+	ret = fcs_plat_copy_from_user(s_buf, &k_ctx->ctr_set.cache, tsz);
+	if (ret) {
+		LOG_ERR("Failed to copy cache to kernel buffer ret: %d\n", ret);
+		goto free_mem;
+	}
+
+	ret = fcs_plat_copy_from_user(s_buf + tsz, k_ctx->ctr_set.ccert,
+				      k_ctx->ctr_set.ccert_len);
+	if (ret) {
+		LOG_ERR("Failed to copy certificate to kernel buffer ret: %d\n",
+			ret);
+		goto free_mem;
+	}
+
+	k_ctx->ctr_set.ccert = s_buf;
+	k_ctx->ctr_set.ccert_len = datasz;
+
+	ret = priv->plat_data->svc_send_request(priv, FCS_DEV_COUNTER_SET,
+						FCS_REQUEST_TIMEOUT);
+	if (ret) {
+		LOG_ERR("Failed to send the cmd=%d,ret=%d\n",
+			FCS_DEV_COUNTER_SET, ret);
+		goto free_mem;
+	}
+
+	if (priv->status) {
+		ret = -EIO;
+		LOG_ERR("Mailbox error, Failed to set counter ret: %d\n", ret);
+		goto copy_mbox_status;
+	}
+
+	ret = fcs_plat_copy_to_user(ctx.ctr_set.status, &priv->resp, 1);
+	if (ret) {
+		LOG_ERR("Failed to copy counter set status to user ret: %d\n",
+			ret);
+		goto copy_mbox_status;
+	}
+
+copy_mbox_status:
+	ret = fcs_plat_copy_to_user(ctx.error_code_addr, &priv->status,
+				    sizeof(priv->status));
+	if (ret) {
+		LOG_ERR("Failed to copy mailbox status code to user ret: %d\n",
+			ret);
+	}
+free_mem:
+	priv->plat_data->svc_free_memory(priv, s_buf);
+
+	return ret;
+}
+EXPORT_SYMBOL(hal_counter_set);
+
+FCS_HAL_INT hal_counter_set_preauth(struct fcs_cmd_context *const k_ctx)
+{
+	FCS_HAL_INT ret = 0;
+	struct fcs_cmd_context ctx;
+
+	fcs_plat_memcpy(&ctx, k_ctx, sizeof(struct fcs_cmd_context));
+
+	ret = priv->plat_data->svc_send_request(
+		priv, FCS_DEV_COUNTER_SET_PREAUTHORIZED, FCS_REQUEST_TIMEOUT);
+	if (ret) {
+		LOG_ERR("Failed to send the cmd=%d,ret=%d\n",
+			FCS_DEV_COUNTER_SET_PREAUTHORIZED, ret);
+		ret = -EFAULT;
+		goto unmap;
+	}
+
+	if (priv->status) {
+		ret = -EIO;
+		LOG_ERR("Mailbox error, Failed to set counter preauthorized ret: %d\n",
+			ret);
+		goto copy_mbox_status;
+	}
+
+copy_mbox_status:
+	ret = fcs_plat_copy_to_user(ctx.error_code_addr, &priv->status,
+				    sizeof(priv->status));
+	if (ret) {
+		LOG_ERR("Failed to copy mailbox status code to user ret: %d\n",
+			ret);
+	}
+
+unmap:
+	return ret;
+}
+EXPORT_SYMBOL(hal_counter_set_preauth);
+
 FCS_HAL_INT hal_hkdf_request(struct fcs_cmd_context *const k_ctx)
 {
 	FCS_HAL_INT ret = 0;
@@ -623,6 +795,80 @@ free_mem:
 	return ret;
 }
 EXPORT_SYMBOL(hal_hkdf_request);
+
+FCS_HAL_INT hal_hps_img_validate(struct fcs_cmd_context *const k_ctx)
+{
+	FCS_HAL_INT ret = 0;
+	FCS_HAL_VOID *s_buf = NULL;
+	struct fcs_cmd_context ctx;
+	FCS_HAL_UINT s_buf_len = 0, tsz = 0;
+
+	fcs_plat_memcpy(&ctx, k_ctx, sizeof(struct fcs_cmd_context));
+
+	tsz = sizeof(ctx.hps_img_validate.test);
+	s_buf_len = ctx.hps_img_validate.vab_cert_len + tsz;
+
+	/* Allocate memory for the source buffer */
+	s_buf = priv->plat_data->svc_alloc_memory(priv, s_buf_len);
+	if (IS_ERR(s_buf)) {
+		ret = -ENOMEM;
+		LOG_ERR("Failed to allocate memory for HPS image buffer ret: %d\n",
+			ret);
+		return ret;
+	}
+
+	fcs_plat_memcpy(s_buf, &ctx.hps_img_validate.test, tsz);
+
+	/* Copy the user space source data to the source buffer */
+	ret = fcs_plat_copy_from_user(s_buf + tsz,
+				      ctx.hps_img_validate.vab_cert,
+				      ctx.hps_img_validate.vab_cert_len);
+	if (ret) {
+		LOG_ERR("Failed to copy HPS image validat from user to kernel buffer ret: %d\n",
+			ret);
+		goto free_mem;
+	}
+
+	k_ctx->hps_img_validate.vab_cert = s_buf;
+	k_ctx->hps_img_validate.vab_cert_len = s_buf_len;
+
+	ret = priv->plat_data->svc_send_request(
+		priv, FCS_DEV_HPS_IMG_VALIDATE_REQUEST, FCS_REQUEST_TIMEOUT);
+	if (ret) {
+		LOG_ERR("Failed to send the cmd=%d,ret=%d\n",
+			FCS_DEV_HPS_IMG_VALIDATE_REQUEST, ret);
+		goto free_mem;
+	}
+
+	if (priv->status) {
+		ret = -EIO;
+		LOG_ERR("Mailbox error, failed to perform HPS image validation ret: %d\n",
+			ret);
+		goto copy_mbox_status;
+	}
+
+	ret = fcs_plat_copy_to_user(ctx.hps_img_validate.resp, &priv->resp,
+				    sizeof(FCS_HAL_U32));
+	if (ret) {
+		LOG_ERR("Failed to copy Image validation response to user ret: %d\n",
+			ret);
+		goto copy_mbox_status;
+	}
+
+copy_mbox_status:
+	ret = fcs_plat_copy_to_user(ctx.error_code_addr, &priv->status,
+				    sizeof(priv->status));
+	if (ret) {
+		LOG_ERR("Failed to copy mailbox status code to user ret: %d\n",
+			ret);
+	}
+
+free_mem:
+	priv->plat_data->svc_free_memory(priv, s_buf);
+
+	return ret;
+}
+EXPORT_SYMBOL(hal_hps_img_validate);
 
 struct fcs_cmd_context *hal_get_fcs_cmd_ctx(void)
 {
