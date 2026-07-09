@@ -97,6 +97,10 @@
 			temp_volt: hwmon {
 				compatible = "intel,soc64-hwmon";
 			};
+
+			fcs_config: fcs-config {
+				compatible = "intel,agilex5-soc-fcs-config";
+			};
 		};
 	};
 
