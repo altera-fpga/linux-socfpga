@@ -1070,6 +1070,38 @@ out:
 	return ret;
 }
 
+#ifdef CONFIG_ALTERA_SOCFPGA_FCS_DEBUG
+static ssize_t generic_mbox_store(struct device *dev,
+				  struct device_attribute *attr,
+				  const char *buf, size_t buf_size)
+{
+	int ret = buf_size;
+	struct fcs_cmd_context *const u_ctx = *(struct fcs_cmd_context **)buf;
+	struct fcs_cmd_context *const k_ctx = hal_get_fcs_cmd_ctx();
+
+	if (!k_ctx) {
+		pr_err("Failed get context. Context is in use\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	if (copy_from_user(k_ctx, u_ctx, sizeof(struct fcs_cmd_context))) {
+		pr_err("Failed to copy context from user space\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	ret = hal_generic_mbox(k_ctx);
+	if (ret)
+		pr_err("Failed to send generic mbox\n");
+
+out:
+	hal_release_fcs_cmd_ctx(k_ctx);
+
+	return ret;
+}
+#endif
+
 static ssize_t aes_crypt_init_store(struct device *dev,
 				    struct device_attribute *attr,
 				    const char *buf, size_t buf_size)
@@ -1606,6 +1638,9 @@ static DEVICE_ATTR_WO(ecdsa_sha2data_verify);
 static DEVICE_ATTR_WO(hps_image_validate);
 static DEVICE_ATTR_RO(atf_version);
 static DEVICE_ATTR_WO(sdos);
+#ifdef CONFIG_ALTERA_SOCFPGA_FCS_DEBUG
+static DEVICE_ATTR_WO(generic_mbox);
+#endif
 static DEVICE_ATTR_WO(aes_crypt_init);
 static DEVICE_ATTR_WO(aes_crypt_update);
 static DEVICE_ATTR_WO(aes_crypt_final);
@@ -1661,6 +1696,9 @@ static struct attribute *fcs_config_attrs[] = {
 	&dev_attr_hps_image_validate.attr,
 	&dev_attr_atf_version.attr,
 	&dev_attr_sdos.attr,
+#ifdef CONFIG_ALTERA_SOCFPGA_FCS_DEBUG
+	&dev_attr_generic_mbox.attr,
+#endif
 	&dev_attr_aes_crypt_init.attr,
 	&dev_attr_aes_crypt_update.attr,
 	&dev_attr_aes_crypt_final.attr,
