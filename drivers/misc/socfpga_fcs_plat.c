@@ -481,6 +481,53 @@ static FCS_HAL_INT plat_sip_svc_send_request(struct socfpga_fcs_priv *priv,
 		msg->command = COMMAND_FCS_CRYPTO_ECDH_REQUEST_FINALIZE;
 		break;
 
+	case FCS_DEV_CHIP_ID:
+		pr_debug("Sending command: COMMAND_FCS_GET_CHIP_ID\n");
+		msg->command = COMMAND_FCS_GET_CHIP_ID;
+		break;
+
+	case FCS_DEV_ATTESTATION_GET_CERTIFICATE:
+		pr_debug("Sending command: COMMAND_FCS_ATTESTATION_CERTIFICATE with cert_request: 0x%x\n",
+			 k_ctx->attestation_cert.cert_request);
+		msg->payload = NULL;
+		msg->payload_length = 0;
+		msg->payload_output = k_ctx->attestation_cert.cert;
+		msg->payload_length_output = *k_ctx->attestation_cert.cert_size;
+		msg->arg[0] = k_ctx->attestation_cert.cert_request;
+		msg->command = COMMAND_FCS_ATTESTATION_CERTIFICATE;
+		break;
+
+	case FCS_DEV_ATTESTATION_CERTIFICATE_RELOAD:
+		pr_debug("Sending command: COMMAND_FCS_ATTESTATION_CERTIFICATE_RELOAD with cert_request: 0x%x\n",
+			 k_ctx->attestation_cert_reload.cert_request & 0xff);
+		msg->arg[0] = k_ctx->attestation_cert_reload.cert_request &
+			      0xff;
+		msg->command = COMMAND_FCS_ATTESTATION_CERTIFICATE_RELOAD;
+		break;
+
+	case FCS_DEV_MCTP_REQUEST:
+		pr_debug("Sending command: COMMAND_FCS_MCTP_SEND with mctp_req_len: 0x%x\n",
+			 k_ctx->mctp.mctp_req_len);
+		msg->command = COMMAND_FCS_MCTP_SEND;
+		msg->payload = k_ctx->mctp.mctp_req;
+		msg->payload_length = k_ctx->mctp.mctp_req_len;
+		msg->payload_output = k_ctx->mctp.mctp_resp;
+		msg->payload_length_output = *k_ctx->mctp.mctp_resp_len;
+		break;
+
+	case FCS_DEV_GET_IDCODE:
+		pr_debug("Sending command: COMMAND_GET_IDCODE\n");
+		msg->command = COMMAND_GET_IDCODE;
+		break;
+
+	case FCS_DEV_GET_DEVICE_IDENTITY:
+		pr_debug("Sending command: COMMAND_FCS_CRYPTO_GET_DEVICE_IDENTITY\n");
+		msg->command = COMMAND_FCS_CRYPTO_GET_DEVICE_IDENTITY;
+		msg->payload_output = k_ctx->device_identity.identity;
+		msg->payload_length_output =
+			*k_ctx->device_identity.identity_len;
+		break;
+
 	case FCS_DEV_SDOS_DATA_EXT:
 		pr_debug("Sending command: COMMAND_FCS_SDOS_DATA_EXT with session_id: 0x%x, context_id: 0x%x, op_mode: 0x%x, own: 0x%llx\n",
 			 priv->session_id, k_ctx->sdos.context_id,

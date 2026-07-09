@@ -468,6 +468,191 @@ out:
 	return ret;
 }
 
+static ssize_t chip_id_store(struct device *dev, struct device_attribute *attr,
+			     const char *buf, size_t buf_size)
+{
+	struct fcs_cmd_context *const u_ctx = *(struct fcs_cmd_context **)buf;
+	struct fcs_cmd_context *k_ctx;
+	int ret = buf_size;
+
+	k_ctx = hal_get_fcs_cmd_ctx();
+	if (!k_ctx) {
+		pr_err("Failed get context. Context is in use\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	if (copy_from_user(k_ctx, u_ctx, sizeof(struct fcs_cmd_context))) {
+		pr_err("Failed to copy context from user space\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	ret = hal_get_chip_id(k_ctx);
+	if (ret)
+		pr_err("Failed to get chip id\n");
+
+out:
+	hal_release_fcs_cmd_ctx(k_ctx);
+
+	return ret;
+}
+
+static ssize_t atstn_cert_store(struct device *dev,
+				struct device_attribute *attr, const char *buf,
+				size_t buf_size)
+{
+	struct fcs_cmd_context *const u_ctx = *(struct fcs_cmd_context **)buf;
+	struct fcs_cmd_context *k_ctx;
+	int ret = buf_size;
+
+	k_ctx = hal_get_fcs_cmd_ctx();
+	if (!k_ctx) {
+		pr_err("Failed get context. Context is in use\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	if (copy_from_user(k_ctx, u_ctx, sizeof(struct fcs_cmd_context))) {
+		pr_err("Failed to copy context from user space\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	ret = hal_attestation_get_certificate(k_ctx);
+	if (ret)
+		pr_err("Failed to get attestation cert\n");
+
+out:
+	hal_release_fcs_cmd_ctx(k_ctx);
+
+	return ret;
+}
+
+static ssize_t atstn_cert_reload_store(struct device *dev,
+				       struct device_attribute *attr,
+				       const char *buf, size_t buf_size)
+{
+	struct fcs_cmd_context *const u_ctx = *(struct fcs_cmd_context **)buf;
+	struct fcs_cmd_context *k_ctx;
+	int ret = buf_size;
+
+	k_ctx = hal_get_fcs_cmd_ctx();
+	if (!k_ctx) {
+		pr_err("Failed get context. Context is in use\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	if (copy_from_user(k_ctx, u_ctx, sizeof(struct fcs_cmd_context))) {
+		pr_err("Failed to copy context from user space\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	ret = hal_attestation_certificate_reload(k_ctx);
+	if (ret)
+		pr_err("Failed to get attestation cert\n");
+
+out:
+	hal_release_fcs_cmd_ctx(k_ctx);
+
+	return ret;
+}
+
+static ssize_t mctp_req_store(struct device *dev, struct device_attribute *attr,
+			      const char *buf, size_t buf_size)
+{
+	struct fcs_cmd_context *const u_ctx = *(struct fcs_cmd_context **)buf;
+	struct fcs_cmd_context *k_ctx;
+	int ret = buf_size;
+
+	k_ctx = hal_get_fcs_cmd_ctx();
+	if (!k_ctx) {
+		pr_err("Failed get context. Context is in use\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	if (copy_from_user(k_ctx, u_ctx, sizeof(struct fcs_cmd_context))) {
+		pr_err("Failed to copy context from user space\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	ret = hal_mctp_request(k_ctx);
+	if (ret)
+		pr_err("Failed to send mctp request\n");
+
+out:
+	hal_release_fcs_cmd_ctx(k_ctx);
+
+	return ret;
+}
+
+static ssize_t jtag_idcode_store(struct device *dev,
+				 struct device_attribute *attr, const char *buf,
+				 size_t buf_size)
+{
+	struct fcs_cmd_context *const u_ctx = *(struct fcs_cmd_context **)buf;
+	struct fcs_cmd_context *k_ctx;
+	int ret = buf_size;
+
+	k_ctx = hal_get_fcs_cmd_ctx();
+	if (!k_ctx) {
+		pr_err("Failed get context. Context is in use\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	if (copy_from_user(k_ctx, u_ctx, sizeof(struct fcs_cmd_context))) {
+		pr_err("Failed to copy context from user space\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	ret = hal_jtag_idcode(k_ctx);
+	if (ret)
+		pr_err("Failed to get jtag idcode\n");
+
+out:
+	hal_release_fcs_cmd_ctx(k_ctx);
+
+	return ret;
+}
+
+static ssize_t device_identity_store(struct device *dev,
+				     struct device_attribute *attr,
+				     const char *buf, size_t buf_size)
+{
+	struct fcs_cmd_context *const u_ctx = *(struct fcs_cmd_context **)buf;
+	struct fcs_cmd_context *k_ctx;
+	int ret = buf_size;
+
+	k_ctx = hal_get_fcs_cmd_ctx();
+	if (!k_ctx) {
+		pr_err("Failed get context. Context is in use\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	if (copy_from_user(k_ctx, u_ctx, sizeof(struct fcs_cmd_context))) {
+		pr_err("Failed to copy context from user space\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	ret = hal_get_device_identity(k_ctx);
+	if (ret)
+		pr_err("Failed to get device identity\n");
+
+out:
+
+	hal_release_fcs_cmd_ctx(k_ctx);
+
+	return ret;
+}
+
 static ssize_t ecdsa_get_pubkey_store(struct device *dev,
 				      struct device_attribute *attr,
 				      const char *buf, size_t buf_size)
@@ -1216,6 +1401,12 @@ static DEVICE_ATTR_WO(ctr_set_preauth);
 static DEVICE_ATTR_WO(mac_verify);
 static DEVICE_ATTR_WO(aes_crypt);
 static DEVICE_ATTR_WO(ecdh_req);
+static DEVICE_ATTR_WO(chip_id);
+static DEVICE_ATTR_WO(atstn_cert);
+static DEVICE_ATTR_WO(atstn_cert_reload);
+static DEVICE_ATTR_WO(mctp_req);
+static DEVICE_ATTR_WO(jtag_idcode);
+static DEVICE_ATTR_WO(device_identity);
 static DEVICE_ATTR_WO(ecdsa_get_pubkey);
 static DEVICE_ATTR_WO(ecsda_hash_sign);
 static DEVICE_ATTR_WO(ecdsa_hash_verify);
@@ -1259,6 +1450,12 @@ static struct attribute *fcs_config_attrs[] = {
 	&dev_attr_mac_verify.attr,
 	&dev_attr_aes_crypt.attr,
 	&dev_attr_ecdh_req.attr,
+	&dev_attr_chip_id.attr,
+	&dev_attr_atstn_cert.attr,
+	&dev_attr_atstn_cert_reload.attr,
+	&dev_attr_mctp_req.attr,
+	&dev_attr_jtag_idcode.attr,
+	&dev_attr_device_identity.attr,
 	&dev_attr_ecdsa_get_pubkey.attr,
 	&dev_attr_ecsda_hash_sign.attr,
 	&dev_attr_ecdsa_hash_verify.attr,

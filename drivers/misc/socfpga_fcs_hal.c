@@ -1705,6 +1705,339 @@ free_src:
 }
 EXPORT_SYMBOL(hal_ecdh_req);
 
+FCS_HAL_INT hal_get_chip_id(struct fcs_cmd_context *const k_ctx)
+{
+	FCS_HAL_INT ret = 0;
+	struct fcs_cmd_context ctx;
+
+	fcs_plat_memcpy(&ctx, k_ctx, sizeof(struct fcs_cmd_context));
+
+	ret = priv->plat_data->svc_send_request(priv, FCS_DEV_CHIP_ID,
+						FCS_REQUEST_TIMEOUT);
+	if (ret) {
+		LOG_ERR("Failed to send the cmd=%d,ret=%d\n", FCS_DEV_CHIP_ID,
+			ret);
+		return ret;
+	}
+
+	if (priv->status) {
+		ret = -EIO;
+		LOG_ERR("Mailbox error, get chip ID request failed ret: %d\n",
+			ret);
+		goto copy_mbox_status;
+	}
+
+	ret = fcs_plat_copy_to_user(ctx.chip_id.chip_id_lo, &priv->chip_id_lo,
+				    sizeof(priv->chip_id_lo));
+	if (ret) {
+		LOG_ERR("Failed to copy chip ID to user ret: %d\n", ret);
+		goto copy_mbox_status;
+	}
+
+	ret = fcs_plat_copy_to_user(ctx.chip_id.chip_id_hi, &priv->chip_id_hi,
+				    sizeof(priv->chip_id_hi));
+	if (ret)
+		LOG_ERR("Failed to copy chip ID to user ret: %d\n", ret);
+
+copy_mbox_status:
+	ret = fcs_plat_copy_to_user(ctx.error_code_addr, &priv->status,
+				    sizeof(priv->status));
+	if (ret) {
+		LOG_ERR("Failed to copy mailbox status code to user ret: %d\n",
+			ret);
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL(hal_get_chip_id);
+
+FCS_HAL_INT hal_attestation_get_certificate(struct fcs_cmd_context *const k_ctx)
+{
+	FCS_HAL_INT ret = 0;
+	FCS_HAL_U32 cert_len = CERTIFICATE_RSP_MAX_SZ;
+	FCS_HAL_VOID *d_buf = NULL;
+	struct fcs_cmd_context ctx;
+
+	fcs_plat_memcpy(&ctx, k_ctx, sizeof(struct fcs_cmd_context));
+
+	d_buf = priv->plat_data->svc_alloc_memory(priv, cert_len);
+	if (IS_ERR(d_buf)) {
+		ret = -ENOMEM;
+		LOG_ERR("Failed to allocate memory for certificate kernel buffer ret: %d\n",
+			ret);
+		return ret;
+	}
+
+	k_ctx->attestation_cert.cert = d_buf;
+	k_ctx->attestation_cert.cert_size = &cert_len;
+
+	ret = priv->plat_data->svc_send_request(
+		priv, FCS_DEV_ATTESTATION_GET_CERTIFICATE,
+		10 * FCS_REQUEST_TIMEOUT);
+	if (ret) {
+		LOG_ERR("Failed to send the cmd=%d,ret=%d\n",
+			FCS_DEV_ATTESTATION_GET_CERTIFICATE, ret);
+		goto free_dest;
+	}
+
+	if (priv->status) {
+		ret = -EIO;
+		LOG_ERR("Mailbox error, get attestation certificate request failed ret: %d\n",
+			ret);
+		goto copy_mbox_status;
+	}
+
+	ret = fcs_plat_copy_to_user(ctx.attestation_cert.cert, d_buf,
+				    priv->resp);
+	if (ret) {
+		LOG_ERR("Failed to copy attestation certificate to user ret: %d\n",
+			ret);
+		goto copy_mbox_status;
+	}
+
+	ret = fcs_plat_copy_to_user(ctx.attestation_cert.cert_size, &priv->resp,
+				    sizeof(priv->resp));
+	if (ret) {
+		LOG_ERR("Failed to copy attestation certificate length to user ret: %d\n",
+			ret);
+	}
+
+copy_mbox_status:
+	ret = fcs_plat_copy_to_user(ctx.error_code_addr, &priv->status,
+				    sizeof(priv->status));
+	if (ret) {
+		LOG_ERR("Failed to copy mailbox status code to user ret: %d\n",
+			ret);
+	}
+free_dest:
+	priv->plat_data->svc_free_memory(priv, d_buf);
+
+	return ret;
+}
+EXPORT_SYMBOL(hal_attestation_get_certificate);
+
+FCS_HAL_INT
+hal_attestation_certificate_reload(struct fcs_cmd_context *const k_ctx)
+{
+	FCS_HAL_INT ret = 0;
+	struct fcs_cmd_context ctx;
+
+	fcs_plat_memcpy(&ctx, k_ctx, sizeof(struct fcs_cmd_context));
+
+	ret = priv->plat_data->svc_send_request(
+		priv, FCS_DEV_ATTESTATION_CERTIFICATE_RELOAD,
+		FCS_REQUEST_TIMEOUT);
+	if (ret) {
+		LOG_ERR("Failed to send the cmd=%d,ret=%d\n",
+			FCS_DEV_ATTESTATION_CERTIFICATE_RELOAD, ret);
+		return ret;
+	}
+
+	if (priv->status) {
+		ret = -EIO;
+		LOG_ERR("Mailbox error, attestation certificate reload request failed ret: %d\n",
+			ret);
+	}
+
+	ret = fcs_plat_copy_to_user(ctx.error_code_addr, &priv->status,
+				    sizeof(priv->status));
+	if (ret) {
+		LOG_ERR("Failed to copy mailbox status code to user ret: %d\n",
+			ret);
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL(hal_attestation_certificate_reload);
+
+FCS_HAL_INT hal_mctp_request(struct fcs_cmd_context *const k_ctx)
+{
+	FCS_HAL_INT ret = 0;
+	FCS_HAL_UINT mctp_len = MCTP_MAX_LEN;
+	FCS_HAL_VOID *s_buf = NULL, *d_buf = NULL;
+	struct fcs_cmd_context ctx;
+
+	fcs_plat_memcpy(&ctx, k_ctx, sizeof(struct fcs_cmd_context));
+
+	if (ctx.mctp.mctp_req_len > MCTP_MAX_LEN) {
+		LOG_ERR("MCTP data length %d is Invalid, must be less than %d\n",
+			ctx.mctp.mctp_req_len, MCTP_MAX_LEN);
+		return -EINVAL;
+	}
+
+	s_buf = priv->plat_data->svc_alloc_memory(priv, ctx.mctp.mctp_req_len);
+	if (IS_ERR(s_buf)) {
+		ret = -ENOMEM;
+		LOG_ERR("Failed to allocate memory for source buffer ret: %d\n",
+			ret);
+		return ret;
+	}
+
+	ret = fcs_plat_copy_from_user(s_buf, ctx.mctp.mctp_req,
+				      ctx.mctp.mctp_req_len);
+	if (ret) {
+		LOG_ERR("Failed to copy data from user to kernel buffer ret: %d\n",
+			ret);
+		goto free_mem;
+	}
+
+	d_buf = priv->plat_data->svc_alloc_memory(priv, mctp_len);
+	if (IS_ERR(d_buf)) {
+		ret = -ENOMEM;
+		LOG_ERR("Failed to allocate memory for destination buffer ret: %d\n",
+			ret);
+		goto free_mem;
+	}
+
+	k_ctx->mctp.mctp_req = s_buf;
+	k_ctx->mctp.mctp_resp = d_buf;
+	k_ctx->mctp.mctp_resp_len = &mctp_len;
+
+	ret = priv->plat_data->svc_send_request(priv, FCS_DEV_MCTP_REQUEST,
+						10 * FCS_REQUEST_TIMEOUT);
+
+
+	if (priv->status) {
+		ret = -EIO;
+		LOG_ERR("Mailbox error, MCTP request failed ret: %d\n", ret);
+		goto copy_mbox_status;
+	}
+
+	ret = fcs_plat_copy_to_user(ctx.mctp.mctp_resp, d_buf, priv->resp);
+	if (ret) {
+		LOG_ERR("Failed to copy MCTP response to user ret: %d\n", ret);
+		goto copy_mbox_status;
+	}
+
+	ret = fcs_plat_copy_to_user(ctx.mctp.mctp_resp_len, &priv->resp,
+				    sizeof(priv->resp));
+	if (ret) {
+		LOG_ERR("Failed to copy MCTP response size to user ret: %d\n",
+			ret);
+	}
+
+copy_mbox_status:
+	ret = fcs_plat_copy_to_user(ctx.error_code_addr, &priv->status,
+				    sizeof(priv->status));
+	if (ret) {
+		LOG_ERR("Failed to copy mailbox status code to user ret: %d\n",
+			ret);
+	}
+
+	priv->plat_data->svc_free_memory(priv, d_buf);
+
+free_mem:
+	priv->plat_data->svc_free_memory(priv, s_buf);
+
+	return ret;
+}
+EXPORT_SYMBOL(hal_mctp_request);
+
+FCS_HAL_INT hal_jtag_idcode(struct fcs_cmd_context *const k_ctx)
+{
+	FCS_HAL_U32 ret;
+	struct fcs_cmd_context ctx;
+
+	fcs_plat_memcpy(&ctx, k_ctx, sizeof(struct fcs_cmd_context));
+
+	ret = priv->plat_data->svc_send_request(priv, FCS_DEV_GET_IDCODE,
+						FCS_REQUEST_TIMEOUT);
+	if (ret) {
+		LOG_ERR("Failed to send the cmd=%d,ret=%d\n",
+			FCS_DEV_GET_IDCODE, ret);
+		return ret;
+	}
+
+	if (priv->status) {
+		ret = -EIO;
+		LOG_ERR("Mailbox error, Failed to get JTAG IDCODE ret: %d\n",
+			ret);
+		goto copy_mbox_status;
+	}
+
+	ret = fcs_plat_copy_to_user(ctx.jtag_id.jtag_idcode, &priv->resp,
+				    sizeof(priv->resp));
+	if (ret)
+		LOG_ERR("Failed to copy JTAG IDCODE to user ret: %d\n", ret);
+
+copy_mbox_status:
+	ret = fcs_plat_copy_to_user(ctx.error_code_addr, &priv->status,
+				    sizeof(priv->status));
+	if (ret) {
+		LOG_ERR("Failed to copy mailbox status code to user ret: %d\n",
+			ret);
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL(hal_jtag_idcode);
+
+FCS_HAL_INT hal_get_device_identity(struct fcs_cmd_context *const k_ctx)
+{
+	FCS_HAL_U32 ret;
+	struct fcs_cmd_context ctx;
+	FCS_HAL_VOID *d_buf = NULL;
+	FCS_HAL_U32 devid_len = DEVICE_IDENTITY_MAX_LEN;
+
+	fcs_plat_memcpy(&ctx, k_ctx, sizeof(struct fcs_cmd_context));
+
+	d_buf = priv->plat_data->svc_alloc_memory(priv, devid_len);
+	if (IS_ERR(d_buf)) {
+		ret = -ENOMEM;
+		LOG_ERR("Failed to allocate memory for Device Identity kernel buffer ret: %d\n",
+			ret);
+		return ret;
+	}
+
+	k_ctx->device_identity.identity = d_buf;
+	k_ctx->device_identity.identity_len = &devid_len;
+
+	ret = priv->plat_data->svc_send_request(
+		priv, FCS_DEV_GET_DEVICE_IDENTITY, FCS_REQUEST_TIMEOUT);
+
+	if (ret) {
+		LOG_ERR("Failed to send the cmd=%d,ret=%d\n",
+			FCS_DEV_GET_DEVICE_IDENTITY, ret);
+		goto free_dest;
+	}
+
+	if (priv->status) {
+		ret = -EIO;
+		LOG_ERR("Mailbox error, Failed to get Device Identity ret: %d\n",
+			ret);
+		goto copy_mbox_status;
+	}
+
+	ret = fcs_plat_copy_to_user(ctx.device_identity.identity, d_buf,
+				    priv->resp);
+	if (ret) {
+		LOG_ERR("Failed to copy Device Identity to user ret: %d\n",
+			ret);
+		goto copy_mbox_status;
+	}
+
+	ret = fcs_plat_copy_to_user(ctx.device_identity.identity_len,
+				    &priv->resp, sizeof(priv->resp));
+	if (ret) {
+		LOG_ERR("Failed to copy Device Identity length to user ret: %d\n",
+			ret);
+	}
+
+copy_mbox_status:
+	ret = fcs_plat_copy_to_user(ctx.error_code_addr, &priv->status,
+				    sizeof(priv->status));
+	if (ret) {
+		LOG_ERR("Failed to copy mailbox status code to user ret: %d\n",
+			ret);
+	}
+
+free_dest:
+	priv->plat_data->svc_free_memory(priv, d_buf);
+
+	return 0;
+}
+EXPORT_SYMBOL(hal_get_device_identity);
+
 FCS_HAL_INT hal_sdos_crypt(struct fcs_cmd_context *const k_ctx)
 {
 	FCS_HAL_VOID *s_buf = NULL, *d_buf = NULL;
