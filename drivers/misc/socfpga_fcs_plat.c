@@ -213,6 +213,66 @@ static FCS_HAL_INT plat_sip_svc_send_request(struct socfpga_fcs_priv *priv,
 		priv->client.receive_cb = fcs_atf_version_callback;
 		break;
 
+	case FCS_DEV_CRYPTO_IMPORT_KEY:
+		pr_debug("Sending command: COMMAND_FCS_CRYPTO_IMPORT_KEY\n");
+		pr_debug("Key: %*ph\n", k_ctx->import_key.key_len,
+			 k_ctx->import_key.key);
+		msg->payload = k_ctx->import_key.key;
+		msg->payload_length = k_ctx->import_key.key_len;
+		msg->command = COMMAND_FCS_CRYPTO_IMPORT_KEY;
+		break;
+
+	case FCS_DEV_CRYPTO_EXPORT_KEY:
+		pr_debug("Sending command: COMMAND_FCS_CRYPTO_EXPORT_KEY with session_id: 0x%x, key_id: 0x%x\n",
+			 priv->session_id, k_ctx->export_key.key_id);
+		msg->arg[0] = priv->session_id;
+		msg->arg[1] = k_ctx->export_key.key_id;
+		msg->payload_output = k_ctx->export_key.key;
+		msg->payload_length_output = *k_ctx->export_key.key_len;
+		msg->command = COMMAND_FCS_CRYPTO_EXPORT_KEY;
+		break;
+
+	case FCS_DEV_CRYPTO_REMOVE_KEY:
+		pr_debug("Sending command: COMMAND_FCS_CRYPTO_REMOVE_KEY with session_id: 0x%x, key_id: 0x%x\n",
+			 priv->session_id, k_ctx->remove_key.key_id);
+		msg->arg[0] = priv->session_id;
+		msg->arg[1] = k_ctx->remove_key.key_id;
+		msg->command = COMMAND_FCS_CRYPTO_REMOVE_KEY;
+		break;
+
+	case FCS_DEV_CRYPTO_GET_KEY_INFO:
+		pr_debug("Sending command: COMMAND_FCS_CRYPTO_GET_KEY_INFO with session_id: 0x%x, key_id: 0x%x\n",
+			 priv->session_id, k_ctx->key_info.key_id);
+		msg->arg[0] = priv->session_id;
+		msg->arg[1] = k_ctx->key_info.key_id;
+		msg->payload_output = k_ctx->key_info.info;
+		msg->payload_length_output = *k_ctx->key_info.info_len;
+		msg->command = COMMAND_FCS_CRYPTO_GET_KEY_INFO;
+		break;
+
+	case FCS_DEV_CRYPTO_CREATE_KEY:
+		pr_debug("Sending command: COMMAND_FCS_CRYPTO_CREATE_KEY\n");
+		pr_debug("Key: %*ph\n", k_ctx->create_key.key_len,
+			 k_ctx->create_key.key);
+		msg->payload = k_ctx->create_key.key;
+		msg->payload_length = k_ctx->create_key.key_len;
+		msg->command = COMMAND_FCS_CRYPTO_CREATE_KEY;
+		break;
+
+	case FCS_DEV_CRYPTO_HKDF_REQUEST:
+		pr_debug("Sending command: COMMAND_FCS_CRYPTO_HKDF_REQUEST with session_id: 0x%x, steptype: 0x%x, macmode: 0x%x, key_id: 0x%x\n",
+			 priv->session_id, k_ctx->hkdf_req.step_type,
+			 k_ctx->hkdf_req.mac_mode, k_ctx->hkdf_req.key_id);
+		msg->arg[0] = priv->session_id;
+		msg->arg[1] = k_ctx->hkdf_req.step_type;
+		msg->arg[2] = k_ctx->hkdf_req.mac_mode;
+		msg->arg[3] = k_ctx->hkdf_req.key_id;
+		msg->arg[4] = k_ctx->hkdf_req.output_key_obj_len;
+		msg->payload = k_ctx->hkdf_req.ikm;
+		msg->payload_length = k_ctx->hkdf_req.ikm_len;
+		msg->command = COMMAND_FCS_CRYPTO_HKDF_REQUEST;
+		break;
+
 	default:
 		pr_err("Unknown command: 0x%x\n", command);
 		ret = -EINVAL;
