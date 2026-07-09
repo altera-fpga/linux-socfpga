@@ -213,6 +213,16 @@ static FCS_HAL_INT plat_sip_svc_send_request(struct socfpga_fcs_priv *priv,
 		priv->client.receive_cb = fcs_atf_version_callback;
 		break;
 
+	case FCS_DEV_RANDOM_NUMBER_GEN:
+		pr_debug("Sending command: COMMAND_FCS_RANDOM_NUMBER_GEN_EXT with session_id: 0x%x, context_id: 0x%x\n",
+			 priv->session_id, k_ctx->rng.context_id);
+		msg->arg[0] = priv->session_id;
+		msg->arg[1] = k_ctx->rng.context_id;
+		msg->command = COMMAND_FCS_RANDOM_NUMBER_GEN_EXT;
+		msg->payload_output = k_ctx->rng.rng;
+		msg->payload_length_output = k_ctx->rng.rng_len;
+		break;
+
 	case FCS_DEV_CRYPTO_IMPORT_KEY:
 		pr_debug("Sending command: COMMAND_FCS_CRYPTO_IMPORT_KEY\n");
 		pr_debug("Key: %*ph\n", k_ctx->import_key.key_len,
@@ -303,6 +313,160 @@ static FCS_HAL_INT plat_sip_svc_send_request(struct socfpga_fcs_priv *priv,
 		msg->arg[1] = k_ctx->ctr_set_preauth.ctr_val;
 		msg->arg[2] = k_ctx->ctr_set_preauth.test;
 		msg->command = COMMAND_FCS_COUNTER_SET_PREAUTHORIZED;
+		break;
+
+	case FCS_DEV_CRYPTO_GET_DIGEST_INIT:
+		pr_debug("Sending command: COMMAND_FCS_CRYPTO_GET_DIGEST_INIT with session_id: 0x%x, context_id: 0x%x, key_id: 0x%x,sha_op_mode: 0x%x, sha_digest_sz: 0x%x\n",
+			 priv->session_id, k_ctx->dgst.context_id,
+			 k_ctx->dgst.key_id, k_ctx->dgst.sha_op_mode,
+			 k_ctx->dgst.sha_digest_sz);
+		msg->arg[0] = priv->session_id;
+		msg->arg[1] = k_ctx->dgst.context_id;
+		msg->arg[2] = k_ctx->dgst.key_id;
+		msg->arg[3] = DIGEST_PARAM_SZ;
+		msg->arg[4] = k_ctx->dgst.sha_op_mode |
+			      (k_ctx->dgst.sha_digest_sz << DIGEST_SZ_OFFSET);
+		msg->command = COMMAND_FCS_CRYPTO_GET_DIGEST_INIT;
+		no_async_poll = true;
+		break;
+
+	case FCS_DEV_CRYPTO_GET_DIGEST_UPDATE:
+		pr_debug("Sending command: COMMAND_FCS_CRYPTO_GET_DIGEST_UPDATE with session_id: 0x%x, context_id: 0x%x, src_len: 0x%x\n",
+			 priv->session_id, k_ctx->dgst.context_id,
+			 k_ctx->dgst.src_len);
+		msg->arg[0] = priv->session_id;
+		msg->arg[1] = k_ctx->dgst.context_id;
+		msg->payload = k_ctx->dgst.src;
+		msg->payload_length = k_ctx->dgst.src_len;
+		msg->payload_output = k_ctx->dgst.digest;
+		msg->payload_length_output = *k_ctx->dgst.digest_len;
+		msg->command = COMMAND_FCS_CRYPTO_GET_DIGEST_UPDATE;
+		break;
+
+	case FCS_DEV_CRYPTO_GET_DIGEST_FINAL:
+		pr_debug("Sending command: COMMAND_FCS_CRYPTO_GET_DIGEST_FINALIZE with session_id: 0x%x, context_id: 0x%x, src_len: 0x%x\n",
+			 priv->session_id, k_ctx->dgst.context_id,
+			 k_ctx->dgst.src_len);
+		msg->arg[0] = priv->session_id;
+		msg->arg[1] = k_ctx->dgst.context_id;
+		msg->payload = k_ctx->dgst.src;
+		msg->payload_length = k_ctx->dgst.src_len;
+		msg->payload_output = k_ctx->dgst.digest;
+		msg->payload_length_output = *k_ctx->dgst.digest_len;
+		msg->command = COMMAND_FCS_CRYPTO_GET_DIGEST_FINALIZE;
+		break;
+
+	case FCS_DEV_CRYPTO_MAC_VERIFY_INIT:
+		pr_debug("Sending command: COMMAND_FCS_CRYPTO_MAC_VERIFY_INIT with session_id: 0x%x, context_id: 0x%x, key_id: 0x%x, sha_op_mode: 0x%x, sha_digest_sz: 0x%x\n",
+			 priv->session_id, k_ctx->mac_verify.context_id,
+			 k_ctx->mac_verify.key_id, k_ctx->mac_verify.sha_op_mode,
+			 k_ctx->mac_verify.sha_digest_sz);
+		msg->arg[0] = priv->session_id;
+		msg->arg[1] = k_ctx->mac_verify.context_id;
+		msg->arg[2] = k_ctx->mac_verify.key_id;
+		msg->arg[3] = DIGEST_PARAM_SZ;
+		msg->arg[4] =
+			k_ctx->mac_verify.sha_op_mode |
+			(k_ctx->mac_verify.sha_digest_sz << DIGEST_SZ_OFFSET);
+		msg->command = COMMAND_FCS_CRYPTO_MAC_VERIFY_INIT;
+		no_async_poll = true;
+		break;
+
+	case FCS_DEV_CRYPTO_MAC_VERIFY_UPDATE:
+		pr_debug("Sending command: COMMAND_FCS_CRYPTO_MAC_VERIFY_UPDATE with session_id: 0x%x, context_id: 0x%x, user_data_size: 0x%x\n",
+			 priv->session_id, k_ctx->mac_verify.context_id,
+			 k_ctx->mac_verify.user_data_size);
+		msg->arg[0] = priv->session_id;
+		msg->arg[1] = k_ctx->mac_verify.context_id;
+		msg->arg[2] = k_ctx->mac_verify.user_data_size;
+		msg->payload = k_ctx->mac_verify.src;
+		msg->payload_length = k_ctx->mac_verify.src_size;
+		msg->payload_output = k_ctx->mac_verify.dst;
+		msg->payload_length_output = *k_ctx->mac_verify.dst_size;
+		msg->command = COMMAND_FCS_CRYPTO_MAC_VERIFY_UPDATE;
+		break;
+
+	case FCS_DEV_CRYPTO_MAC_VERIFY_FINAL:
+		pr_debug("Sending command: COMMAND_FCS_CRYPTO_MAC_VERIFY_FINALIZE with session_id: 0x%x, context_id: 0x%x, user_data_size: 0x%x\n",
+			 priv->session_id, k_ctx->mac_verify.context_id,
+			 k_ctx->mac_verify.user_data_size);
+		msg->arg[0] = priv->session_id;
+		msg->arg[1] = k_ctx->mac_verify.context_id;
+		msg->arg[2] = k_ctx->mac_verify.user_data_size;
+		msg->payload = k_ctx->mac_verify.src;
+		msg->payload_length = k_ctx->mac_verify.src_size;
+		msg->payload_output = k_ctx->mac_verify.dst;
+		msg->payload_length_output = *k_ctx->mac_verify.dst_size;
+		msg->command = COMMAND_FCS_CRYPTO_MAC_VERIFY_FINALIZE;
+		break;
+
+	case FCS_DEV_CRYPTO_AES_CRYPT_INIT:
+		pr_debug("Sending command: COMMAND_FCS_CRYPTO_AES_CRYPT_INIT with session_id: 0x%x, cid: 0x%x, kid: 0x%x\n",
+			 priv->session_id, k_ctx->aes.cid, k_ctx->aes.kid);
+		msg->arg[0] = priv->session_id;
+		msg->arg[1] = k_ctx->aes.cid;
+		msg->arg[2] = k_ctx->aes.kid;
+		msg->payload = k_ctx->aes.input;
+		msg->payload_length = k_ctx->aes.ip_len;
+		msg->payload_output = NULL;
+		msg->payload_length_output = 0;
+		msg->command = COMMAND_FCS_CRYPTO_AES_CRYPT_INIT;
+		no_async_poll = true;
+		break;
+
+	case FCS_DEV_CRYPTO_AES_CRYPT_UPDATE:
+		pr_debug("Sending command: COMMAND_FCS_CRYPTO_AES_CRYPT_UPDATE with session_id:0x%x, cid: 0x%x, kid: 0x%x src = %p, dst = %p, src_size = %d dst_size= %d\n",
+			 priv->session_id, k_ctx->aes.cid, k_ctx->aes.kid, k_ctx->aes.input,
+			 k_ctx->aes.output, k_ctx->aes.ip_len, *k_ctx->aes.op_len);
+		msg->arg[0] = priv->session_id;
+		msg->arg[1] = k_ctx->aes.cid;
+
+		if (k_ctx->aes.mode == FCS_AES_BLOCK_MODE_GCM ||
+		    k_ctx->aes.mode == FCS_AES_BLOCK_MODE_GHASH)
+			msg->arg[2] = k_ctx->aes.input_pad;
+		else
+			msg->arg[2] = 0;
+
+		msg->payload = k_ctx->aes.input;
+		msg->payload_length = k_ctx->aes.ip_len;
+		msg->payload_output = k_ctx->aes.output;
+		msg->payload_length_output = *k_ctx->aes.op_len;
+		msg->command = COMMAND_FCS_CRYPTO_AES_CRYPT_UPDATE;
+		break;
+
+	case FCS_DEV_CRYPTO_AES_CRYPT_FINAL:
+		pr_debug("Sending command: COMMAND_FCS_CRYPTO_AES_CRYPT_FINALIZE with session_id: 0x%x, cid: 0x%x, kid: 0x%x src = %p, dst = %p, src_size = %d dst_size= %d\n",
+			 priv->session_id, k_ctx->aes.cid, k_ctx->aes.kid, k_ctx->aes.input,
+			 k_ctx->aes.output, k_ctx->aes.ip_len, *k_ctx->aes.op_len);
+		msg->arg[0] = priv->session_id;
+		msg->arg[1] = k_ctx->aes.cid;
+
+		if (k_ctx->aes.mode == FCS_AES_BLOCK_MODE_GCM ||
+		    k_ctx->aes.mode == FCS_AES_BLOCK_MODE_GHASH)
+			msg->arg[2] = k_ctx->aes.input_pad;
+		else
+			msg->arg[2] = 0;
+
+		msg->payload = k_ctx->aes.input;
+		msg->payload_length = k_ctx->aes.ip_len;
+		msg->payload_output = k_ctx->aes.output;
+		msg->payload_length_output = *k_ctx->aes.op_len;
+		msg->command = COMMAND_FCS_CRYPTO_AES_CRYPT_FINALIZE;
+		break;
+
+	case FCS_DEV_SDOS_DATA_EXT:
+		pr_debug("Sending command: COMMAND_FCS_SDOS_DATA_EXT with session_id: 0x%x, context_id: 0x%x, op_mode: 0x%x, own: 0x%llx\n",
+			 priv->session_id, k_ctx->sdos.context_id,
+			 k_ctx->sdos.op_mode, k_ctx->sdos.own);
+		msg->arg[0] = priv->session_id;
+		msg->arg[1] = k_ctx->sdos.context_id;
+		msg->arg[2] = k_ctx->sdos.op_mode;
+		msg->arg[3] = k_ctx->sdos.own;
+		msg->payload = k_ctx->sdos.src;
+		msg->payload_length = k_ctx->sdos.src_size;
+		msg->payload_output = k_ctx->sdos.dst;
+		msg->payload_length_output = *k_ctx->sdos.dst_size;
+		msg->command = COMMAND_FCS_SDOS_DATA_EXT;
 		break;
 
 	case FCS_DEV_HPS_IMG_VALIDATE_REQUEST:

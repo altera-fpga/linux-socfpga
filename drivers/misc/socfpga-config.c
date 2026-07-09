@@ -376,6 +376,68 @@ out:
 	return ret;
 }
 
+static ssize_t mac_verify_store(struct device *dev,
+				struct device_attribute *attr, const char *buf,
+				size_t buf_size)
+{
+	struct fcs_cmd_context *const u_ctx = *(struct fcs_cmd_context **)buf;
+	struct fcs_cmd_context *k_ctx;
+	int ret = buf_size;
+
+	k_ctx = hal_get_fcs_cmd_ctx();
+	if (!k_ctx) {
+		pr_err("Failed get context. Context is in use\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	if (copy_from_user(k_ctx, u_ctx, sizeof(struct fcs_cmd_context))) {
+		pr_err("Failed to copy context from user space\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	ret = hal_mac_verify(k_ctx);
+	if (ret)
+		pr_err("Failed to mac verify\n");
+
+out:
+	hal_release_fcs_cmd_ctx(k_ctx);
+
+	return ret;
+}
+
+static ssize_t aes_crypt_store(struct device *dev,
+			       struct device_attribute *attr, const char *buf,
+			       size_t buf_size)
+{
+	struct fcs_cmd_context *const u_ctx = *(struct fcs_cmd_context **)buf;
+	struct fcs_cmd_context *k_ctx;
+	int ret = buf_size;
+
+	k_ctx = hal_get_fcs_cmd_ctx();
+	if (!k_ctx) {
+		pr_err("Failed get context. Context is in use\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	if (copy_from_user(k_ctx, u_ctx, sizeof(struct fcs_cmd_context))) {
+		pr_err("Failed to copy context from user space\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	ret = hal_aes_crypt(k_ctx);
+	if (ret)
+		pr_err("Failed to crypt data\n");
+
+out:
+	hal_release_fcs_cmd_ctx(k_ctx);
+
+	return ret;
+}
+
 static ssize_t hps_image_validate_store(struct device *dev,
 					struct device_attribute *attr,
 					const char *buf, size_t buf_size)
@@ -422,6 +484,358 @@ static ssize_t platform_show(struct device *dev, struct device_attribute *attr,
 	return sprintf(buf, "%d\n", hal_get_platform());
 }
 
+static ssize_t sdos_store(struct device *dev, struct device_attribute *attr,
+			  const char *buf, size_t buf_size)
+{
+	struct fcs_cmd_context *const u_ctx = *(struct fcs_cmd_context **)buf;
+	struct fcs_cmd_context *k_ctx;
+	int ret = buf_size;
+
+	k_ctx = hal_get_fcs_cmd_ctx();
+	if (!k_ctx) {
+		pr_err("Failed get context. Context is in use\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	if (copy_from_user(k_ctx, u_ctx, sizeof(struct fcs_cmd_context))) {
+		pr_err("Failed to copy context from user space\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	ret = hal_sdos_crypt(k_ctx);
+	if (ret)
+		pr_err("Failed to perform SDOS operation\n");
+
+out:
+
+	hal_release_fcs_cmd_ctx(k_ctx);
+
+	return ret;
+}
+
+static ssize_t aes_crypt_init_store(struct device *dev,
+				    struct device_attribute *attr,
+				    const char *buf, size_t buf_size)
+{
+	struct fcs_cmd_context *const u_ctx = *(struct fcs_cmd_context **)buf;
+	struct fcs_cmd_context *k_ctx;
+	int ret;
+
+	k_ctx = hal_get_fcs_cmd_ctx();
+	if (!k_ctx) {
+		pr_err("Failed get context. Context is in use\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	if (copy_from_user(k_ctx, u_ctx, sizeof(struct fcs_cmd_context))) {
+		pr_err("Failed to copy context from user space\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	ret = hal_aes_streaming_init(k_ctx);
+	if (ret)
+		pr_err("AES crypt streaming init failed\n");
+out:
+	hal_release_fcs_cmd_ctx(k_ctx);
+	return ret;
+}
+
+static ssize_t aes_crypt_update_store(struct device *dev,
+				      struct device_attribute *attr,
+				      const char *buf, size_t buf_size)
+{
+	struct fcs_cmd_context *const u_ctx = *(struct fcs_cmd_context **)buf;
+	struct fcs_cmd_context *k_ctx;
+	int ret;
+
+	k_ctx = hal_get_fcs_cmd_ctx();
+	if (!k_ctx) {
+		pr_err("Failed get context. Context is in use\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	if (copy_from_user(k_ctx, u_ctx, sizeof(struct fcs_cmd_context))) {
+		pr_err("Failed to copy context from user space\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	ret = hal_aes_streaming_update(k_ctx);
+	if (ret)
+		pr_err("AES crypt update failed\n");
+out:
+	hal_release_fcs_cmd_ctx(k_ctx);
+	return ret;
+}
+
+static ssize_t aes_crypt_final_store(struct device *dev,
+				     struct device_attribute *attr,
+				     const char *buf, size_t buf_size)
+{
+	struct fcs_cmd_context *const u_ctx = *(struct fcs_cmd_context **)buf;
+	struct fcs_cmd_context *k_ctx;
+	int ret;
+
+	k_ctx = hal_get_fcs_cmd_ctx();
+	if (!k_ctx) {
+		pr_err("Failed get context. Context is in use\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	if (copy_from_user(k_ctx, u_ctx, sizeof(struct fcs_cmd_context))) {
+		pr_err("Failed to copy context from user space\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	ret = hal_aes_streaming_final(k_ctx);
+	if (ret)
+		pr_err("AES crypt final failed\n");
+out:
+	hal_release_fcs_cmd_ctx(k_ctx);
+	return ret;
+}
+
+static ssize_t get_digest_init_store(struct device *dev,
+				     struct device_attribute *attr,
+				     const char *buf, size_t buf_size)
+{
+	struct fcs_cmd_context *const u_ctx = *(struct fcs_cmd_context **)buf;
+	struct fcs_cmd_context *k_ctx;
+	int ret;
+
+	k_ctx = hal_get_fcs_cmd_ctx();
+	if (!k_ctx) {
+		pr_err("Failed get context. Context is in use\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	if (copy_from_user(k_ctx, u_ctx, sizeof(struct fcs_cmd_context))) {
+		pr_err("Failed to copy context from user space\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	ret = hal_digest_streaming_init(k_ctx);
+	if (ret)
+		pr_err("Failed to perform get digest init\n");
+out:
+	hal_release_fcs_cmd_ctx(k_ctx);
+	return ret;
+}
+
+static ssize_t get_digest_update_store(struct device *dev,
+				       struct device_attribute *attr,
+				       const char *buf, size_t buf_size)
+{
+	struct fcs_cmd_context *const u_ctx = *(struct fcs_cmd_context **)buf;
+	struct fcs_cmd_context *k_ctx;
+	int ret;
+
+	k_ctx = hal_get_fcs_cmd_ctx();
+	if (!k_ctx) {
+		pr_err("Failed get context. Context is in use\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	if (copy_from_user(k_ctx, u_ctx, sizeof(struct fcs_cmd_context))) {
+		pr_err("Failed to copy context from user space\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	ret = hal_digest_streaming_update(k_ctx);
+	if (ret)
+		pr_err("Failed to perform get digest update\n");
+out:
+	hal_release_fcs_cmd_ctx(k_ctx);
+	return ret;
+}
+
+static ssize_t get_digest_final_store(struct device *dev,
+				      struct device_attribute *attr,
+				      const char *buf, size_t buf_size)
+{
+	struct fcs_cmd_context *const u_ctx = *(struct fcs_cmd_context **)buf;
+	struct fcs_cmd_context *k_ctx;
+	int ret;
+
+	k_ctx = hal_get_fcs_cmd_ctx();
+	if (!k_ctx) {
+		pr_err("Failed get context. Context is in use\n");
+		ret = -EFAULT;
+		goto out;
+	}
+	if (copy_from_user(k_ctx, u_ctx, sizeof(struct fcs_cmd_context))) {
+		pr_err("Failed to copy context from user space\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	ret = hal_digest_streaming_final(k_ctx);
+	if (ret)
+		pr_err("Failed to perform get digest final\n");
+out:
+	hal_release_fcs_cmd_ctx(k_ctx);
+	return ret;
+}
+
+static ssize_t get_digest_store(struct device *dev,
+				struct device_attribute *attr, const char *buf,
+				size_t buf_size)
+{
+	struct fcs_cmd_context *const u_ctx = *(struct fcs_cmd_context **)buf;
+	struct fcs_cmd_context *k_ctx;
+	int ret;
+
+	k_ctx = hal_get_fcs_cmd_ctx();
+	if (!k_ctx) {
+		pr_err("Failed get context. Context is in use\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	if (copy_from_user(k_ctx, u_ctx, sizeof(struct fcs_cmd_context))) {
+		pr_err("Failed to copy context from user space\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	ret = hal_get_digest(k_ctx);
+	if (ret)
+		pr_err("Failed to perform get digest update\n");
+out:
+	hal_release_fcs_cmd_ctx(k_ctx);
+	return ret;
+}
+
+static ssize_t mac_verify_init_store(struct device *dev,
+				     struct device_attribute *attr,
+				     const char *buf, size_t buf_size)
+{
+	struct fcs_cmd_context *const u_ctx = *(struct fcs_cmd_context **)buf;
+	struct fcs_cmd_context *k_ctx;
+	int ret = buf_size;
+
+	k_ctx = hal_get_fcs_cmd_ctx();
+	if (!k_ctx) {
+		pr_err("Failed get context. Context is in use\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	if (copy_from_user(k_ctx, u_ctx, sizeof(struct fcs_cmd_context))) {
+		pr_err("Failed to copy context from user space\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	ret = hal_mac_verify_streaming_init(k_ctx);
+	if (ret)
+		pr_err("Failed to mac verify init\n");
+out:
+	hal_release_fcs_cmd_ctx(k_ctx);
+
+	return ret;
+}
+
+static ssize_t mac_verify_update_store(struct device *dev,
+				       struct device_attribute *attr,
+				       const char *buf, size_t buf_size)
+{
+	struct fcs_cmd_context *const u_ctx = *(struct fcs_cmd_context **)buf;
+	struct fcs_cmd_context *k_ctx;
+	int ret = buf_size;
+
+	k_ctx = hal_get_fcs_cmd_ctx();
+	if (!k_ctx) {
+		pr_err("Failed get context. Context is in use\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	if (copy_from_user(k_ctx, u_ctx, sizeof(struct fcs_cmd_context))) {
+		pr_err("Failed to copy context from user space\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	ret = hal_mac_verify_streaming_update(k_ctx);
+	if (ret)
+		pr_err("Failed to mac verify update\n");
+out:
+	hal_release_fcs_cmd_ctx(k_ctx);
+
+	return ret;
+}
+
+static ssize_t mac_verify_final_store(struct device *dev,
+				      struct device_attribute *attr,
+				      const char *buf, size_t buf_size)
+{
+	struct fcs_cmd_context *const u_ctx = *(struct fcs_cmd_context **)buf;
+	struct fcs_cmd_context *k_ctx;
+	int ret = buf_size;
+
+	k_ctx = hal_get_fcs_cmd_ctx();
+	if (!k_ctx) {
+		pr_err("Failed get context. Context is in use\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	if (copy_from_user(k_ctx, u_ctx, sizeof(struct fcs_cmd_context))) {
+		pr_err("Failed to copy context from user space\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	ret = hal_mac_verify_streaming_final(k_ctx);
+	if (ret)
+		pr_err("Failed to mac verify final\n");
+out:
+	hal_release_fcs_cmd_ctx(k_ctx);
+
+	return ret;
+}
+
+static ssize_t get_rng_store(struct device *dev,
+			      struct device_attribute *attr, const char *buf,
+			      size_t buf_size)
+{
+	struct fcs_cmd_context *const u_ctx = *(struct fcs_cmd_context **)buf;
+	struct fcs_cmd_context *k_ctx;
+	int ret = buf_size;
+
+	k_ctx = hal_get_fcs_cmd_ctx();
+	if (!k_ctx) {
+		pr_err("Failed to get context, context is in use\n");
+		ret = -EFAULT;
+		return ret;
+	}
+
+	if (copy_from_user(k_ctx, u_ctx, sizeof(struct fcs_cmd_context))) {
+		pr_err("Failed to copy context from user space\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	ret = hal_random_number(k_ctx);
+	if (ret)
+		pr_err("Failed to get random number\n");
+out:
+	hal_release_fcs_cmd_ctx(k_ctx);
+	return ret;
+}
+
 static DEVICE_ATTR_WO(open_session);
 static DEVICE_ATTR_WO(close_session);
 static DEVICE_ATTR_WO(context_info);
@@ -434,8 +848,22 @@ static DEVICE_ATTR_WO(hkdf_req);
 static DEVICE_ATTR_WO(prov_data);
 static DEVICE_ATTR_WO(ctr_set);
 static DEVICE_ATTR_WO(ctr_set_preauth);
+static DEVICE_ATTR_WO(mac_verify);
+static DEVICE_ATTR_WO(aes_crypt);
 static DEVICE_ATTR_WO(hps_image_validate);
 static DEVICE_ATTR_RO(atf_version);
+static DEVICE_ATTR_WO(sdos);
+static DEVICE_ATTR_WO(aes_crypt_init);
+static DEVICE_ATTR_WO(aes_crypt_update);
+static DEVICE_ATTR_WO(aes_crypt_final);
+static DEVICE_ATTR_WO(get_digest_init);
+static DEVICE_ATTR_WO(get_digest_update);
+static DEVICE_ATTR_WO(get_digest_final);
+static DEVICE_ATTR_WO(get_digest);
+static DEVICE_ATTR_WO(mac_verify_init);
+static DEVICE_ATTR_WO(mac_verify_update);
+static DEVICE_ATTR_WO(mac_verify_final);
+static DEVICE_ATTR_WO(get_rng);
 static DEVICE_ATTR_RO(platform);
 
 static struct attribute *fcs_config_attrs[] = {
@@ -451,8 +879,22 @@ static struct attribute *fcs_config_attrs[] = {
 	&dev_attr_prov_data.attr,
 	&dev_attr_ctr_set.attr,
 	&dev_attr_ctr_set_preauth.attr,
+	&dev_attr_mac_verify.attr,
+	&dev_attr_aes_crypt.attr,
 	&dev_attr_hps_image_validate.attr,
 	&dev_attr_atf_version.attr,
+	&dev_attr_sdos.attr,
+	&dev_attr_aes_crypt_init.attr,
+	&dev_attr_aes_crypt_update.attr,
+	&dev_attr_aes_crypt_final.attr,
+	&dev_attr_get_digest_init.attr,
+	&dev_attr_get_digest_update.attr,
+	&dev_attr_get_digest_final.attr,
+	&dev_attr_get_digest.attr,
+	&dev_attr_mac_verify_init.attr,
+	&dev_attr_mac_verify_update.attr,
+	&dev_attr_mac_verify_final.attr,
+	&dev_attr_get_rng.attr,
 	&dev_attr_platform.attr,
 	NULL
 };
