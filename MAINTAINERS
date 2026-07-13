@@ -954,6 +954,16 @@ L:	linux-gpio@vger.kernel.org
 S:	Maintained
 F:	drivers/gpio/gpio-altera.c
 
+
+ALTERA FPGA HSSI SUBSYSTEM DRIVER
+M:	Preetam Narayan <preetam.narayan@altera.com>
+M:	Subhransu S. Prusty <subhransu.sekhar.prusty@altera.com>
+L:	netdev@vger.kernel.org
+S:	Maintained
+F:	Documentation/devicetree/bindings/net/altr,hssiss.yaml
+F:	drivers/net/ethernet/altera/altera_eth_intf.h
+F:	drivers/net/ethernet/altera/hssiss/
+
 ALTERA TRIPLE SPEED ETHERNET DRIVER
 M:	Boon Khai Ng <boon.khai.ng@altera.com>
 L:	netdev@vger.kernel.org
