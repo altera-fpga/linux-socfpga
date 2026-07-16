@@ -5,3 +5,4 @@
 
 obj-$(CONFIG_ALTERA_HSSISS) += altera-hssiss.o
 altera-hssiss-y := altera_hssiss.o
+altera-hssiss-$(CONFIG_DEBUG_FS) += altera_hssiss_debug.o
