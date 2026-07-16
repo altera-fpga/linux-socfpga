@@ -595,6 +595,7 @@ static void cdns_xspi_sdma_handle(struct cdns_xspi_dev *cdns_xspi)
 {
 	u32 sdma_size, sdma_trd_info;
 	u8 sdma_dir;
+	int i;
 
 	sdma_size = readl(cdns_xspi->iobase + CDNS_XSPI_SDMA_SIZE_REG);
 	sdma_trd_info = readl(cdns_xspi->iobase + CDNS_XSPI_SDMA_TRD_INFO_REG);
@@ -602,13 +603,17 @@ static void cdns_xspi_sdma_handle(struct cdns_xspi_dev *cdns_xspi)
 
 	switch (sdma_dir) {
 	case CDNS_XSPI_SDMA_DIR_READ:
-		ioread8_rep(cdns_xspi->sdmabase,
-			    cdns_xspi->in_buffer, sdma_size);
+		//ioread8_rep(cdns_xspi->sdmabase,
+		//	    cdns_xspi->in_buffer, sdma_size);
+		for (i = 0; i < sdma_size; i++)
+			((uint8_t *)cdns_xspi->in_buffer)[i] = readb(cdns_xspi->sdmabase + i);
 		break;
 
 	case CDNS_XSPI_SDMA_DIR_WRITE:
-		iowrite8_rep(cdns_xspi->sdmabase,
-			     cdns_xspi->out_buffer, sdma_size);
+		//iowrite8_rep(cdns_xspi->sdmabase,
+		//	     cdns_xspi->out_buffer, sdma_size);
+		for (i = 0; i < sdma_size; i++)
+			writeb(((uint8_t *)cdns_xspi->out_buffer)[i], cdns_xspi->sdmabase + i);
 		break;
 	}
 }
