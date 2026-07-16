@@ -404,6 +404,7 @@ static bool cdns_xspi_configure_phy(struct cdns_xspi_dev *cdns_xspi)
 {
 	writel(cdns_xspi->driver_data->dll_phy_ctrl,
 	       cdns_xspi->iobase + CDNS_XSPI_RF_MINICTRL_REGS_DLL_PHY_CTRL);
+#if 0
 	writel(cdns_xspi->driver_data->ctb_rfile_phy_ctrl,
 	       cdns_xspi->auxbase + CDNS_XSPI_PHY_CTB_RFILE_PHY_CTRL);
 	writel(cdns_xspi->driver_data->rfile_phy_tsel,
@@ -418,7 +419,7 @@ static bool cdns_xspi_configure_phy(struct cdns_xspi_dev *cdns_xspi)
 	       cdns_xspi->auxbase + CDNS_XSPI_PHY_DATASLICE_RFILE_PHY_DLL_MASTER_CTRL);
 	writel(cdns_xspi->driver_data->rfile_phy_dll_slave_ctrl,
 	       cdns_xspi->auxbase + CDNS_XSPI_PHY_DATASLICE_RFILE_PHY_DLL_SLAVE_CTRL);
-
+#endif
 	cdns_xspi_reset_dll(cdns_xspi);
 
 	return cdns_xspi_is_dll_locked(cdns_xspi);
@@ -444,13 +445,15 @@ static bool cdns_mrvl_xspi_setup_clock(struct cdns_xspi_dev *cdns_xspi,
 		cdns_mrvl_xspi_clk_div_list[i],
 		MRVL_XSPI_CLOCK_DIVIDED(
 		cdns_mrvl_xspi_clk_div_list[i]));
-
+#if 0
 	clk_reg = readl(cdns_xspi->auxbase + MRVL_XSPI_CLK_CTRL_AUX_REG);
-
+#endif
 	if (FIELD_GET(MRVL_XSPI_CLK_DIV, clk_reg) != i) {
 		clk_reg &= ~MRVL_XSPI_CLK_ENABLE;
+		#if 0
 		writel(clk_reg,
 		       cdns_xspi->auxbase + MRVL_XSPI_CLK_CTRL_AUX_REG);
+		#endif
 		clk_reg = FIELD_PREP(MRVL_XSPI_CLK_DIV, i);
 		clk_reg &= ~MRVL_XSPI_CLK_DIV;
 		clk_reg |= FIELD_PREP(MRVL_XSPI_CLK_DIV, i);
@@ -458,11 +461,11 @@ static bool cdns_mrvl_xspi_setup_clock(struct cdns_xspi_dev *cdns_xspi,
 		clk_reg |= MRVL_XSPI_IRQ_ENABLE;
 		update_clk = true;
 	}
-
+#if 0
 	if (update_clk)
 		writel(clk_reg,
 		       cdns_xspi->auxbase + MRVL_XSPI_CLK_CTRL_AUX_REG);
-
+#endif
 	return update_clk;
 }
 
@@ -492,7 +495,18 @@ static void cdns_xspi_trigger_command(struct cdns_xspi_dev *cdns_xspi,
 static int cdns_xspi_check_command_status(struct cdns_xspi_dev *cdns_xspi)
 {
 	int ret = 0;
-	u32 cmd_status = readl(cdns_xspi->iobase + CDNS_XSPI_CMD_STATUS_REG);
+	int retry = 0;
+	u32 cmd_status;
+
+	/* Poll until command completes (interrupt may be slow on simulation) */
+	do {
+		cmd_status = readl(cdns_xspi->iobase + CDNS_XSPI_CMD_STATUS_REG);
+		if (cmd_status & CDNS_XSPI_CMD_STATUS_COMPLETED)
+			break;
+		usleep_range(1000, 2000);
+		if (retry++ > 3)
+			break;
+	} while (1);
 
 	if (cmd_status & CDNS_XSPI_CMD_STATUS_COMPLETED) {
 		if ((cmd_status & CDNS_XSPI_CMD_STATUS_FAILED) != 0) {
@@ -671,12 +685,23 @@ static void marvell_xspi_sdma_handle(struct cdns_xspi_dev *cdns_xspi)
 	}
 }
 
+/*
+ * FIXME: Temporary workaround. Interrupts do not work correctly in Simics:
+ *   - HPS instance: SDMA_TRIGGER interrupt does not fire for data-phase
+ *     commands.
+ *   - SDM instance: Interrupts do not work at all.
+ * To work around this we disable the IRQ line at the GIC so in case the ISR
+ * fires it cannot clear those bits before our polling loop reads them. After
+ * the Simics fix, the polling logic should be removed in favour of the
+ * wait_for_completion() calls that are currently commented out below.
+ */
 static int cdns_xspi_send_stig_command(struct cdns_xspi_dev *cdns_xspi,
 				       const struct spi_mem_op *op,
 				       bool data_phase)
 {
 	u32 cmd_regs[6];
 	u32 cmd_status;
+	u32 irq_status = 0;
 	int ret;
 	int dummybytes = op->dummy.nbytes;
 
@@ -689,6 +714,8 @@ static int cdns_xspi_send_stig_command(struct cdns_xspi_dev *cdns_xspi,
 
 	cdns_xspi->set_interrupts_handler(cdns_xspi, true);
 	cdns_xspi->sdma_error = false;
+
+	disable_irq(cdns_xspi->irq);
 
 	memset(cmd_regs, 0, sizeof(cmd_regs));
 	cmd_regs[1] = CDNS_XSPI_CMD_FLD_P1_INSTR_CMD_1(op, data_phase);
@@ -717,15 +744,50 @@ static int cdns_xspi_send_stig_command(struct cdns_xspi_dev *cdns_xspi,
 
 		cdns_xspi_trigger_command(cdns_xspi, cmd_regs);
 
-		wait_for_completion(&cdns_xspi->sdma_complete);
+		// wait_for_completion(&cdns_xspi->sdma_complete);
+		if (readl_relaxed_poll_timeout((cdns_xspi->iobase +
+				CDNS_XSPI_INTR_STATUS_REG),
+				irq_status,
+				(irq_status & (CDNS_XSPI_SDMA_TRIGGER |
+					       CDNS_XSPI_SDMA_ERROR)),
+				 100, 1000000)) {
+			dev_err(cdns_xspi->dev, "SDMA timeout!\n");
+			enable_irq(cdns_xspi->irq);
+			cdns_xspi->set_interrupts_handler(cdns_xspi, false);
+			return -EIO;
+		}
+		/* Only clear SDMA bits, preserve STIG_DONE if set simultaneously */
+		writel(irq_status & (CDNS_XSPI_SDMA_TRIGGER | CDNS_XSPI_SDMA_ERROR),
+		       cdns_xspi->iobase + CDNS_XSPI_INTR_STATUS_REG);
+		if (irq_status & CDNS_XSPI_SDMA_ERROR)
+			cdns_xspi->sdma_error = true;
 		if (cdns_xspi->sdma_error) {
+			enable_irq(cdns_xspi->irq);
 			cdns_xspi->set_interrupts_handler(cdns_xspi, false);
 			return -EIO;
 		}
 		cdns_xspi->sdma_handler(cdns_xspi);
 	}
 
-	wait_for_completion(&cdns_xspi->cmd_complete);
+	// wait_for_completion(&cdns_xspi->cmd_complete);
+	irq_status = readl(cdns_xspi->iobase + CDNS_XSPI_INTR_STATUS_REG);
+	if (irq_status & CDNS_XSPI_STIG_DONE) {
+		writel(CDNS_XSPI_STIG_DONE,
+		       cdns_xspi->iobase + CDNS_XSPI_INTR_STATUS_REG);
+	} else {
+		if (readl_relaxed_poll_timeout((cdns_xspi->iobase +
+					CDNS_XSPI_INTR_STATUS_REG),
+					irq_status,
+					(irq_status & CDNS_XSPI_STIG_DONE),
+					100, 1000000)) {
+			dev_err(cdns_xspi->dev, "STIG command timeout!\n");
+		} else {
+			writel(CDNS_XSPI_STIG_DONE,
+			       cdns_xspi->iobase + CDNS_XSPI_INTR_STATUS_REG);
+		}
+	}
+
+	enable_irq(cdns_xspi->irq);
 	cdns_xspi->set_interrupts_handler(cdns_xspi, false);
 
 	cmd_status = cdns_xspi_check_command_status(cdns_xspi);
@@ -930,6 +992,7 @@ static void cdns_xspi_print_phy_config(struct cdns_xspi_dev *cdns_xspi)
 	struct device *dev = cdns_xspi->dev;
 
 	dev_info(dev, "PHY configuration\n");
+	#if 0
 	dev_info(dev, "   * xspi_dll_phy_ctrl: %08x\n",
 		 readl(cdns_xspi->iobase + CDNS_XSPI_DLL_PHY_CTRL));
 	dev_info(dev, "   * phy_dq_timing: %08x\n",
@@ -940,6 +1003,7 @@ static void cdns_xspi_print_phy_config(struct cdns_xspi_dev *cdns_xspi)
 		 readl(cdns_xspi->auxbase + CDNS_XSPI_CCP_PHY_GATE_LPBCK_CTRL));
 	dev_info(dev, "   * phy_dll_slave_ctrl: %08x\n",
 		 readl(cdns_xspi->auxbase + CDNS_XSPI_CCP_PHY_DLL_SLAVE_CTRL));
+	#endif
 }
 
 static int cdns_xspi_prepare_generic(int cs, const void *dout, int len, int glue, u32 *cmd_regs)
