@@ -201,7 +201,6 @@
 };
 &watchdog4 {
 	status = "okay";
-	disable-over-current;
 };
 
 &temp_volt {

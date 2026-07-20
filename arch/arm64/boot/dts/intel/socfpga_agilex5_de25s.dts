@@ -142,22 +142,6 @@
 	status = "okay";
 };
 
-&watchdog1 {
-	status = "okay";
-};
-
-&watchdog2 {
-	status = "okay";
-};
-
-&watchdog3 {
-	status = "okay";
-};
-
-&watchdog4 {
-	status = "okay";
-};
-
 &temp_volt {
 	voltage {
 		#address-cells = <1>;
