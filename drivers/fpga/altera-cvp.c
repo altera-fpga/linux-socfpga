@@ -372,7 +372,7 @@ static int altera_cvp_teardown(struct fpga_manager *mgr,
 	ret = altera_cvp_wait_status(conf, VSE_CVP_STATUS_CFG_RDY, 0,
 				     conf->priv->poll_time_us);
 	if (ret) {
-		dev_err(&mgr->dev, "CFG_RDY == 0 timeout\n");
+		dev_warn(&mgr->dev, "CFG_RDY == 0 timeout\n");
 		goto error_path;
 	}
 
@@ -391,17 +391,16 @@ error_path:
 static int altera_cvp_recovery(struct fpga_manager *mgr,
 			      struct fpga_image_info *info)
 {
-	int ret = 0, retry = 0;
+	int ret, retry;
 
-	for (retry = 0; retry < CVP_TEARDOWN_MAX_RETRY; retry++) {
+	ret = altera_cvp_teardown(mgr, info);
+	for (retry = 0; ret && retry < CVP_TEARDOWN_MAX_RETRY; retry++)
 		ret = altera_cvp_teardown(mgr, info);
-		if (!ret)
-			break;
-		dev_warn(&mgr->dev,
-				 "%s: [%d] Tear-down failed. Retrying\n",
-				 __func__,
-				 retry);
-	}
+
+	if (ret)
+		dev_err(&mgr->dev, "Tear-down failed after %d retries\n", CVP_TEARDOWN_MAX_RETRY);
+	else
+		dev_info(&mgr->dev, "Tear-down successful\n");
 	return ret;
 }
 static int altera_cvp_write_init(struct fpga_manager *mgr,
