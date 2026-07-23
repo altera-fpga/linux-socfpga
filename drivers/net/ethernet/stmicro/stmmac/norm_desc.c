@@ -167,11 +167,13 @@ static void ndesc_release_tx_desc(struct dma_desc *p, int mode)
 {
 	int ter = (le32_to_cpu(p->des1) & TDES1_END_RING) >> 25;
 
-	memset(p, 0, offsetof(struct dma_desc, des2));
-	if (mode == STMMAC_CHAIN_MODE)
+	if (mode == STMMAC_CHAIN_MODE) {
+		memset(p, 0, offsetof(struct dma_desc, des2));
 		ndesc_tx_set_on_chain(p);
-	else
+	} else {
+		memset(p, 0, sizeof(*p));
 		ndesc_end_tx_desc_on_ring(p, ter);
+	}
 }
 
 static void ndesc_prepare_tx_desc(struct dma_desc *p, int is_fs, int len,

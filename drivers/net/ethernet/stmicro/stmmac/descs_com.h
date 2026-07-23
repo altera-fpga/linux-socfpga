@@ -46,8 +46,11 @@ static inline void enh_set_tx_desc_len_on_ring(struct dma_desc *p, int len)
 					<< ETDES1_BUFFER2_SIZE_SHIFT)
 			    & ETDES1_BUFFER2_SIZE_MASK) | (BUF_SIZE_4KiB
 			    & ETDES1_BUFFER1_SIZE_MASK));
-	} else
+		p->des3 = cpu_to_le32(le32_to_cpu(p->des2) + BUF_SIZE_4KiB);
+	} else {
 		p->des1 |= cpu_to_le32((len & ETDES1_BUFFER1_SIZE_MASK));
+		p->des3 = 0;
+	}
 }
 
 /* Normal descriptors */
@@ -81,8 +84,11 @@ static inline void norm_set_tx_desc_len_on_ring(struct dma_desc *p, int len)
 		p->des1 |= cpu_to_le32((((len - buffer1)
 					<< TDES1_BUFFER2_SIZE_SHIFT)
 				& TDES1_BUFFER2_SIZE_MASK) | buffer1);
-	} else
+		p->des3 = cpu_to_le32(le32_to_cpu(p->des2) + buffer1);
+	} else {
 		p->des1 |= cpu_to_le32((len & TDES1_BUFFER1_SIZE_MASK));
+		p->des3 = 0;
+	}
 }
 
 /* Specific functions used for Chain mode */

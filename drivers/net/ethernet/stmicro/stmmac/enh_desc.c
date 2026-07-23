@@ -301,11 +301,13 @@ static void enh_desc_release_tx_desc(struct dma_desc *p, int mode)
 {
 	int ter = (le32_to_cpu(p->des0) & ETDES0_END_RING) >> 21;
 
-	memset(p, 0, offsetof(struct dma_desc, des2));
-	if (mode == STMMAC_CHAIN_MODE)
+	if (mode == STMMAC_CHAIN_MODE) {
+		memset(p, 0, offsetof(struct dma_desc, des2));
 		enh_desc_end_tx_desc_on_chain(p);
-	else
+	} else {
+		memset(p, 0, sizeof(*p));
 		enh_desc_end_tx_desc_on_ring(p, ter);
+	}
 }
 
 static void enh_desc_prepare_tx_desc(struct dma_desc *p, int is_fs, int len,
