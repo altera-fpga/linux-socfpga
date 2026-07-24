@@ -957,20 +957,21 @@
 		};
 
 		usb31: usb31@d000000 {
-			compatible = "intel,agilex5-dwc3", "snps,dwc3";
+			compatible = "altr,agilex5-dwc3";
 			reg = <0xd000000 0x100000>;
 			interrupts = <GIC_SPI 92 IRQ_TYPE_LEVEL_HIGH>;
 			resets = <&rst USB31_RESET>, <&rst USB31PHY_RESET>;
 			reset-names = "dwc3", "dwc3-ecc";
-			clocks = <&clkmgr AGILEX72_USB31_SUSPEND_CLK>,
-				 <&clkmgr AGILEX72_HSP_MAIN_CLK>;
+			clocks = <&clkmgr AGILEX72_USB31_REF_CLK>,
+				 <&clkmgr AGILEX72_USB31_SUSPEND_CLK>,
+				 <&clkmgr AGILEX72_USB31_BUS_CLK_EARLY>;
+			clock-names = "ref", "suspend", "bus_early";
 			iommus = <&smmu 7>;
 			phys = <&usbphy0>, <&usbphy0>;
 			phy-names = "usb2-phy", "usb3-phy";
 			maximum-speed = "super-speed";
 			snps,dis_u2_susphy_quirk;
 			snps,dis_u3_susphy_quirk;
-			snps,dma_set_40_bit_mask_quirk;
 			status = "disabled";
 		};
 
