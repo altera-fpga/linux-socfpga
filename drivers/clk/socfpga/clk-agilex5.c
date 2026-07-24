@@ -526,6 +526,21 @@ static int agilex5_clkmgr_init(struct platform_device *pdev)
 	agilex5_clk_register_gate(agilex5_gate_clks,
 				  ARRAY_SIZE(agilex5_gate_clks), clk_data);
 
+	/*
+	 * usb31_ref_clk is a 1:1 alias of usb31_suspend_clk. The DWC3
+	 * controller uses the same source for both its suspend and reference
+	 * clock inputs on this SoC. Register it as a fixed-factor (passthrough)
+	 * clock so that enabling it propagates to the parent gate without
+	 * touching any gate register of its own.
+	 */
+	clk_data->clk_data.hws[AGILEX5_USB31_REF_CLK] =
+		devm_clk_hw_register_fixed_factor(dev, "usb31_ref_clk",
+						  "usb31_suspend_clk", 0, 1, 1);
+	if (IS_ERR(clk_data->clk_data.hws[AGILEX5_USB31_REF_CLK]))
+		return dev_err_probe(dev,
+			PTR_ERR(clk_data->clk_data.hws[AGILEX5_USB31_REF_CLK]),
+			"failed to register clock usb31_ref_clk\n");
+
 	of_clk_add_hw_provider(np, of_clk_hw_onecell_get, &clk_data->clk_data);
 	return 0;
 }
