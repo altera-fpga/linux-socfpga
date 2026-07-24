@@ -110,6 +110,7 @@
 #define AGILEX72_SDMMC1_SDMCLK         93
 #define AGILEX72_SDMMC0_PHY_CLK        94
 #define AGILEX72_SDMMC1_PHY_CLK        95
-#define AGILEX72_NUM_CLKS              96
+#define AGILEX72_USB31_REF_CLK         96
+#define AGILEX72_NUM_CLKS              97
 
 #endif  /* __DT_BINDINGS_ALTR_AGILEX72_CLKMGR_H */
