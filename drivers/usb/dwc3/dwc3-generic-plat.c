@@ -144,6 +144,7 @@ static const struct dev_pm_ops dwc3_generic_dev_pm_ops = {
 
 static const struct of_device_id dwc3_generic_of_match[] = {
 	{ .compatible = "spacemit,k1-dwc3", },
+	{ .compatible = "altr,agilex5-dwc3", },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, dwc3_generic_of_match);
