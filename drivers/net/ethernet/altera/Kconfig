@@ -1,4 +1,18 @@
 # SPDX-License-Identifier: GPL-2.0-only
+# Altera device configuration
+# Copyright (C) 2014,2026 Altera Corporation. All rights reserved
+
+config NET_ALTERA_ETH
+	bool "Altera Ethernet drivers"
+	help
+	  Say Y here to enable support for Altera/Intel FPGA Ethernet drivers.
+	  This includes the Triple-Speed Ethernet MAC and HSSI Subsystem
+	  drivers for use with Altera FPGAs.
+
+	  If unsure, say N.
+
+if NET_ALTERA_ETH
+
 config ALTERA_TSE
 	tristate "Altera Triple-Speed Ethernet MAC support"
 	depends on HAS_DMA
@@ -13,3 +27,15 @@ config ALTERA_TSE
 
 	  To compile this driver as a module, choose M here. The module
 	  will be called alteratse.
+
+config ALTERA_HSSISS
+	tristate "Altera FPGA HSSI Subsystem support"
+	depends on HAS_IOMEM
+	depends on OF
+	help
+	  This driver supports the Altera FPGA HSSI subsystem.
+
+	  To compile this driver as a module, choose M here. The module
+	  will be called altera-hssiss.
+
+endif
