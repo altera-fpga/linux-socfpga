@@ -22,13 +22,13 @@ defaults:
 
 jobs:
   ci-pipeline:
-    uses: altera-innersource/applications.devops.build-bot.github-pr-workflow/.github/workflows/linux-ci-pipeline.yml@rc-cicd-2026.07
+    uses: altera-innersource/applications.devops.build-bot.github-pr-workflow/.github/workflows/linux-ci-pipeline.yml@cicd-2026.07
     secrets:
       GIT_USER: ${{ secrets.GIT_USER }}
       GIT_TOKEN: ${{ secrets.GIT_TOKEN }}
       AGPT_TOKEN: ${{ secrets.AGPT_TOKEN }}
     with:
-      WORKFLOW_REPO_REF: rc-cicd-2026.07
+      WORKFLOW_REPO_REF: cicd-2026.07
       CI_EXEC_ROOT: ${{ vars.CI_EXEC_ROOT }}
       base_ref: ${{ (github.event_name == 'pull_request' && github.event.pull_request.base.ref)
                  || inputs.base_ref
