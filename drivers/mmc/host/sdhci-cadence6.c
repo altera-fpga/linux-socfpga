@@ -89,6 +89,13 @@
 #define SDHCI_CDNS6_PHY_CTRL_REG				0x2080
 #define   SDHCI_CDNS6_PHY_CTRL_PHONY_DQS_TIMING		GENMASK(9, 4)
 
+/*
+ * Width of the controller's rebar (RE#) pulse in clk_phy cycles. The DLL PHY
+ * guide defines phony_dqs_timing as (rebar pulse width - 1) when extended read
+ * mode is enabled; this controller drives a 2-cycle rebar pulse.
+ */
+#define SDHCI_CDNS6_PHY_REBAR_PULSE_CYCLES	2
+
 /* Default PHY settings */
 #define SDHCI_CDNS6_PHY_DEFAULT_IOCELL_DELAY	2500
 #define SDHCI_CDNS6_PHY_DEFAULT_DELAY_ELEMENT	24
@@ -152,6 +159,9 @@ struct sdhci_cdns6_phy {
 	u32 cp_use_lpbk_dqs;
 	u8 cp_use_phony_dqs;
 	u8 cp_use_phony_dqs_cmd;
+
+	/* PHY_CTRL register fields */
+	u32 cp_phony_dqs_timing;
 
 	/* HRS09 register fields - PHY control and Status */
 	u8 sdhc_extended_rd_mode;
@@ -516,6 +526,13 @@ static void sdhci_cdns6_phy_calc_dat_in(struct sdhci_cdns6_phy *phy)
 		phy->cp_read_dqs_delay =
 			phy->hs200_tune_val;
 
+	if (phy->sdhc_extended_rd_mode &&
+	    (phy->mode == MMC_TIMING_UHS_DDR50 ||
+	     phy->mode == MMC_TIMING_MMC_DDR52))
+		phy->cp_phony_dqs_timing = SDHCI_CDNS6_PHY_REBAR_PULSE_CYCLES - 1;
+	else
+		phy->cp_phony_dqs_timing = 0;
+
 	if (strobe_dat) {
 		/* dqs loopback input via IO cell */
 		hcsdclkadj += phy->iocell_input_delay;
@@ -736,6 +753,8 @@ int sdhci_cdns6_phy_init(struct sdhci_cdns_priv *priv)
 
 	reg = sdhci_cdns6_read_phy_reg(priv, SDHCI_CDNS6_PHY_CTRL_REG);
 	reg &= ~SDHCI_CDNS6_PHY_CTRL_PHONY_DQS_TIMING;
+	reg |= FIELD_PREP(SDHCI_CDNS6_PHY_CTRL_PHONY_DQS_TIMING,
+			  phy->cp_phony_dqs_timing);
 	sdhci_cdns6_write_phy_reg(priv, SDHCI_CDNS6_PHY_CTRL_REG, reg);
 
 	smp_wmb(); /* drain writebuffer */
