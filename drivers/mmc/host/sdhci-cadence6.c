@@ -885,8 +885,6 @@ int sdhci_cdns6_phy_probe(struct platform_device *pdev,
 				    struct sdhci_cdns_priv *priv)
 {
 	struct device *dev = &pdev->dev;
-	struct sdhci_host *host = dev_get_drvdata(dev);
-	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_cdns6_phy *phy;
 	unsigned long val;
 	int ret;
@@ -895,7 +893,10 @@ int sdhci_cdns6_phy_probe(struct platform_device *pdev,
 	if (!phy)
 		return -ENOMEM;
 
-	val = clk_get_rate(pltfm_host->clk);
+	val = clk_get_rate(priv->ciu_clk);
+	if (!val)
+		return dev_err_probe(dev, -EINVAL, "CIU clock rate is 0\n");
+
 	phy->t_sdmclk = DIV_ROUND_DOWN_ULL(1000000000000ULL, val);
 
 	ret = of_property_read_u32(dev->of_node, "cdns,iocell-input-delay",
