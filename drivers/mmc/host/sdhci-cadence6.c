@@ -131,6 +131,11 @@ struct sdhci_cdns6_phy {
 	u32 delay_element_org;	/* Original delay element from DT */
 	u32 delay_element;	/* Current delay element (may be doubled) */
 
+	/* DDR read-path overrides (SoC-specific) */
+	s32 ddr_read_dqs_delay;
+	s32 ddr_use_lpbk_dqs;
+	s32 ddr_phony_dqs_timing;
+
 	/* PHY_DLL_SLAVE_CTRL register fields */
 	u32 cp_read_dqs_cmd_delay;
 	u32 cp_read_dqs_delay;
@@ -526,12 +531,34 @@ static void sdhci_cdns6_phy_calc_dat_in(struct sdhci_cdns6_phy *phy)
 		phy->cp_read_dqs_delay =
 			phy->hs200_tune_val;
 
+	if (phy->mode == MMC_TIMING_UHS_DDR50 && phy->ddr_read_dqs_delay >= 0)
+		phy->cp_read_dqs_delay = phy->ddr_read_dqs_delay &
+			SDHCI_CDNS6_PHY_DLL_SLAVE_CTRL_READ_DQS_DELAY;
+
+	phy->cp_use_ext_lpbk_dqs = 1;
+	phy->cp_use_lpbk_dqs = 1;
+
 	if (phy->sdhc_extended_rd_mode &&
 	    (phy->mode == MMC_TIMING_UHS_DDR50 ||
 	     phy->mode == MMC_TIMING_MMC_DDR52))
 		phy->cp_phony_dqs_timing = SDHCI_CDNS6_PHY_REBAR_PULSE_CYCLES - 1;
 	else
 		phy->cp_phony_dqs_timing = 0;
+
+	if (phy->mode == MMC_TIMING_UHS_DDR50 && phy->ddr_use_lpbk_dqs >= 0)
+		phy->cp_use_lpbk_dqs = phy->ddr_use_lpbk_dqs &
+			FIELD_MAX(SDHCI_CDNS6_PHY_DQS_TIMING_USE_LPBK_DQS);
+
+	/*
+	 * The phony DQS assertion timing (PHY_CTRL[9:4]) is derived above as
+	 * REBAR_PULSE_CYCLES-1, but the correct value depends on the board's SD
+	 * flight time and is not produced by the Cadence timing calculation. A
+	 * board whose returning DDR data is offset from the fabricated strobe may
+	 * demux one beat onto both halves; the DT override re-positions the strobe.
+	 */
+	if (phy->mode == MMC_TIMING_UHS_DDR50 && phy->ddr_phony_dqs_timing >= 0)
+		phy->cp_phony_dqs_timing = phy->ddr_phony_dqs_timing &
+			FIELD_MAX(SDHCI_CDNS6_PHY_CTRL_PHONY_DQS_TIMING);
 
 	if (strobe_dat) {
 		/* dqs loopback input via IO cell */
@@ -906,6 +933,7 @@ int sdhci_cdns6_phy_probe(struct platform_device *pdev,
 	struct device *dev = &pdev->dev;
 	struct sdhci_cdns6_phy *phy;
 	unsigned long val;
+	u32 prop;
 	int ret;
 
 	phy = devm_kzalloc(dev, sizeof(*phy), GFP_KERNEL);
@@ -934,6 +962,50 @@ int sdhci_cdns6_phy_probe(struct platform_device *pdev,
 		phy->delay_element = SDHCI_CDNS6_PHY_DEFAULT_DELAY_ELEMENT;
 
 	phy->delay_element_org = phy->delay_element;
+
+	/*
+	 * Optional DDR50 read-path tuning. These are board/card-characterised
+	 * values with no CMD19 tuning in DDR50; absence keeps the driver
+	 * default (-1 => not overridden).
+	 */
+	phy->ddr_read_dqs_delay = -1;
+	if (!of_property_read_u32(dev->of_node, "cdns,ddr50-read-dqs-delay",
+				  &prop)) {
+		if (prop > SDHCI_CDNS6_PHY_DLL_SLAVE_CTRL_READ_DQS_DELAY) {
+			dev_warn(dev,
+				 "cdns,ddr50-read-dqs-delay %u out of range, clamping to %lu\n",
+				 prop,
+				 (unsigned long)SDHCI_CDNS6_PHY_DLL_SLAVE_CTRL_READ_DQS_DELAY);
+			prop = SDHCI_CDNS6_PHY_DLL_SLAVE_CTRL_READ_DQS_DELAY;
+		}
+		phy->ddr_read_dqs_delay = prop;
+	}
+
+	phy->ddr_use_lpbk_dqs = -1;
+	if (!of_property_read_u32(dev->of_node, "cdns,ddr50-use-lpbk-dqs",
+				  &prop)) {
+		if (prop > FIELD_MAX(SDHCI_CDNS6_PHY_DQS_TIMING_USE_LPBK_DQS)) {
+			dev_warn(dev,
+				 "cdns,ddr50-use-lpbk-dqs %u out of range, clamping to %lu\n",
+				 prop,
+				 (unsigned long)FIELD_MAX(SDHCI_CDNS6_PHY_DQS_TIMING_USE_LPBK_DQS));
+			prop = FIELD_MAX(SDHCI_CDNS6_PHY_DQS_TIMING_USE_LPBK_DQS);
+		}
+		phy->ddr_use_lpbk_dqs = prop;
+	}
+
+	phy->ddr_phony_dqs_timing = -1;
+	if (!of_property_read_u32(dev->of_node, "cdns,ddr50-phony-dqs-timing",
+				  &prop)) {
+		if (prop > FIELD_MAX(SDHCI_CDNS6_PHY_CTRL_PHONY_DQS_TIMING)) {
+			dev_warn(dev,
+				 "cdns,ddr50-phony-dqs-timing %u out of range, clamping to %lu\n",
+				 prop,
+				 (unsigned long)FIELD_MAX(SDHCI_CDNS6_PHY_CTRL_PHONY_DQS_TIMING));
+			prop = FIELD_MAX(SDHCI_CDNS6_PHY_CTRL_PHONY_DQS_TIMING);
+		}
+		phy->ddr_phony_dqs_timing = prop;
+	}
 
 	priv->phy = phy;
 
