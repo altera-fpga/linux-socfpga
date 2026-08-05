@@ -749,22 +749,24 @@
 		};
 
 		mmc0: mmc@9000000 {
-			compatible = "intel,agilex5-sd4hc", "cdns,sd4hc";
+			compatible = "altr,agilex5-sd6hc", "cdns,sd6hc";
 			reg = <0x9000000 0x4000>;
 			interrupts = <GIC_SPI 96 IRQ_TYPE_LEVEL_HIGH>;
 			resets = <&rst SDMMC0_RESET>;
-			clocks = <&clkmgr AGILEX72_LSP_MP_CLK>,
-				 <&clkmgr AGILEX72_SDMMC0_SDMCLK>;
+			clocks = <&clkmgr AGILEX72_SDMMC0_SDMCLK>,
+				 <&clkmgr AGILEX72_LSP_MP_CLK>;
+			clock-names = "ciu", "biu";
 			status = "disabled";
 		};
 
 		mmc1: mmc@9004000 {
-			compatible = "intel,agilex5-sd4hc", "cdns,sd4hc";
+			compatible = "altr,agilex5-sd6hc", "cdns,sd6hc";
 			reg = <0x9004000 0x4000>;
 			interrupts = <GIC_SPI 97 IRQ_TYPE_LEVEL_HIGH>;
 			resets = <&rst SDMMC1_RESET>;
-			clocks = <&clkmgr AGILEX72_LSP_MP_CLK>,
-				 <&clkmgr AGILEX72_SDMMC1_SDMCLK>;
+			clocks = <&clkmgr AGILEX72_SDMMC1_SDMCLK>,
+				 <&clkmgr AGILEX72_LSP_MP_CLK>;
+			clock-names = "ciu", "biu";
 			status = "disabled";
 		};
 
