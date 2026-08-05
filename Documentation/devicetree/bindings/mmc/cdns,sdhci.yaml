@@ -23,7 +23,10 @@ properties:
               - socionext,uniphier-sd4hc
           - const: cdns,sd4hc
       - description: Cadence SD6HC controller
-        items:
+        oneOf:
+          - items:
+              - const: altr,agilex5-sd6hc
+              - const: cdns,sd6hc
           - const: cdns,sd6hc
 
   reg:
@@ -37,8 +40,22 @@ properties:
     minItems: 1
     maxItems: 2
 
+  clock-names:
+    minItems: 1
+    maxItems: 2
+
   resets:
+    minItems: 1
+    maxItems: 3
+
+  reset-names:
+    minItems: 1
+    maxItems: 3
+
+  iommus:
     maxItems: 1
+
+  dma-coherent: true
 
   # PHY DLL input delays:
   # They are used to delay the data valid window, and align the window to
@@ -141,6 +158,8 @@ properties:
     minimum: 1
     maximum: 1000
 
+
+
 required:
   - compatible
   - reg
@@ -175,6 +194,13 @@ allOf:
     then:
       description: SD6HC variant - use IO-cell and delay element properties
       properties:
+        clocks:
+          minItems: 2
+          maxItems: 2
+        clock-names:
+          items:
+            - const: ciu
+            - const: biu
         cdns,phy-input-delay-sd-highspeed: false
         cdns,phy-input-delay-legacy: false
         cdns,phy-input-delay-sd-uhs-sdr12: false
@@ -186,6 +212,29 @@ allOf:
         cdns,phy-dll-delay-sdclk: false
         cdns,phy-dll-delay-sdclk-hsmmc: false
         cdns,phy-dll-delay-strobe: false
+      required:
+        - clock-names
+
+  - if:
+      properties:
+        compatible:
+          contains:
+            const: altr,agilex5-sd6hc
+    then:
+      properties:
+        resets:
+          minItems: 1
+          maxItems: 3
+        reset-names:
+          oneOf:
+            - items:
+                - const: sdhc-reset
+                - const: combophy
+                - const: sdmmc-ocp
+            - items:
+                - const: sdhc-reset
+      required:
+        - resets
 
   - if:
       properties:
@@ -195,6 +244,8 @@ allOf:
     then:
       description: SD4HC variant - use legacy DLL delay properties
       properties:
+        resets:
+          maxItems: 1
         cdns,iocell-input-delay: false
         cdns,iocell-output-delay: false
         cdns,delay-element: false
