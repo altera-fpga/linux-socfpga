@@ -158,7 +158,32 @@ properties:
     minimum: 1
     maximum: 1000
 
+  cdns,ddr50-read-dqs-delay:
+    description: |
+      SD6HC DDR50 read-DQS delay (DLL_SLAVE[7:0]) used to centre the read
+      eye. DDR50 has no CMD19 tuning, so this is a board/SoC-characterised
+      value. If absent, the driver default is used.
+    $ref: /schemas/types.yaml#/definitions/uint32
+    minimum: 0
+    maximum: 0xff
 
+  cdns,ddr50-use-lpbk-dqs:
+    description: |
+      SD6HC DDR50 read-DQS source (DQS_TIMING[21]): 0 = phony DQS,
+      1 = loopback DQS. If absent, the driver default is used.
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [0, 1]
+
+  cdns,ddr50-phony-dqs-timing:
+    description: |
+      SD6HC DDR50 phony DQS assertion timing (PHY_CTRL[9:4]). Positions the
+      fabricated read strobe relative to the returning DDR data; the correct
+      value depends on the board's SD flight time and is not produced by the
+      Cadence timing calculation. If absent, the driver default
+      (REBAR_PULSE_CYCLES-1) is used.
+    $ref: /schemas/types.yaml#/definitions/uint32
+    minimum: 0
+    maximum: 0x3f
 
 required:
   - compatible
@@ -249,6 +274,9 @@ allOf:
         cdns,iocell-input-delay: false
         cdns,iocell-output-delay: false
         cdns,delay-element: false
+        cdns,ddr50-read-dqs-delay: false
+        cdns,ddr50-use-lpbk-dqs: false
+        cdns,ddr50-phony-dqs-timing: false
 
 unevaluatedProperties: false
 
