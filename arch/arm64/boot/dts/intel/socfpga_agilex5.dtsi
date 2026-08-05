@@ -350,17 +350,16 @@
 						<3300000 0x0>;
 		};
 
-		mmc: mmc0@10808000 {
+		mmc: mmc@10808000 {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			compatible = "altr,agilex5-sd6hc", "cdns,sd6hc";
 			reg = <0x10808000 0x1000>;
 			interrupts = <GIC_SPI 96 IRQ_TYPE_LEVEL_HIGH>;
-			fifo-depth = <0x800>;
 			resets = <&rst SDMMC_RESET>, <&rst COMBOPHY_RESET>, <&rst SDMMC_OCP_RESET>;
 			reset-names = "sdhc-reset", "combophy", "sdmmc-ocp";
-			clocks = <&clkmgr AGILEX5_L4_MP_CLK>, <&clkmgr AGILEX5_SDMCLK>;
-			clock-names = "biu", "ciu";
+			clocks = <&clkmgr AGILEX5_SDMCLK>, <&clkmgr AGILEX5_L4_MP_CLK>;
+			clock-names = "ciu", "biu";
 			iommus = <&smmu 5>;
 			dma-coherent;
 			status = "disabled";
