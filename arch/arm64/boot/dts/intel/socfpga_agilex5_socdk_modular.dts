@@ -38,3 +38,13 @@
 &sd_io_1v8_reg {
 	gpios = <&expander1 1 GPIO_ACTIVE_HIGH>;
 };
+
+&mmc {
+	/*
+	 * The modular SoM's longer SD path offsets the returning DDR50 data from
+	 * the fabricated phony strobe, collapsing one DDR beat onto both halves.
+	 * Override the phony DQS assertion timing (default REBAR_PULSE_CYCLES-1 = 1)
+	 * to 0 to re-centre the strobe so both beats are demuxed correctly.
+	 */
+	cdns,ddr50-phony-dqs-timing = <0>;
+};

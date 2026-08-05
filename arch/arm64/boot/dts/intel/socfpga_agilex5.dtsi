@@ -362,6 +362,13 @@
 			clock-names = "ciu", "biu";
 			iommus = <&smmu 5>;
 			dma-coherent;
+			/*
+			 * DDR50 read-path tuning (no CMD19 tuning exists for
+			 * DDR50): use phony DQS and centre the read eye. These
+			 * are characterised for the Agilex5 SD6HC.
+			 */
+			cdns,ddr50-use-lpbk-dqs = <0>;
+			cdns,ddr50-read-dqs-delay = <96>;
 			status = "disabled";
 		};
 
