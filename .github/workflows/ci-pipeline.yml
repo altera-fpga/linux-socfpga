@@ -27,6 +27,7 @@ jobs:
       GIT_USER: ${{ secrets.GIT_USER }}
       GIT_TOKEN: ${{ secrets.GIT_TOKEN }}
       AGPT_TOKEN: ${{ secrets.AGPT_TOKEN }}
+      COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
     with:
       WORKFLOW_REPO_REF: cicd-2026.07
       CI_EXEC_ROOT: ${{ vars.CI_EXEC_ROOT }}
