@@ -53,7 +53,7 @@
 
 			root: partition@3400000  {
 				label = "root";
-				reg = <0x03400000 0x04FFFFFF>;
+				reg = <0x03400000 0x00C00000>;
 			};
 		};
 	};
