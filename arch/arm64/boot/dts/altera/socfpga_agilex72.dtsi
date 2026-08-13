@@ -971,6 +971,7 @@
 			iommus = <&smmu 7>;
 			phys = <&usbphy0>, <&usbphy0>;
 			phy-names = "usb2-phy", "usb3-phy";
+			dr_mode = "host";
 			maximum-speed = "super-speed";
 			snps,dis_u2_susphy_quirk;
 			snps,dis_u3_susphy_quirk;
