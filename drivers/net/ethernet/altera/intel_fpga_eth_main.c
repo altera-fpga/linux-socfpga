@@ -2392,7 +2392,7 @@ static void intel_fpga_xtile_remove(struct platform_device *pdev)
 {
 	struct intel_fpga_xtile_eth_private *priv;
 	struct net_device *ndev;
-	int ret;
+	int ret, queue;
 
 	ndev = platform_get_drvdata(pdev);
 	priv = netdev_priv(ndev);
@@ -2403,7 +2403,8 @@ static void intel_fpga_xtile_remove(struct platform_device *pdev)
 	}
 
 	unregister_netdev(ndev);
-	free_netdev(ndev);
+	for (queue = 0; queue < priv->num_channels; queue++)
+		netif_napi_del(&priv->dma_info[queue].napi);
 
 	kfree(priv->dma_info);
 	priv->dma_info = NULL;
@@ -2415,6 +2416,7 @@ static void intel_fpga_xtile_remove(struct platform_device *pdev)
 	}
 
 	platform_set_drvdata(pdev, NULL);
+	free_netdev(ndev);
 }
 
 static const struct altera_dmaops altera_dtype_prefetcher = {
