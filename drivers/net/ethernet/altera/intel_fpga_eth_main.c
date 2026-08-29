@@ -1329,7 +1329,7 @@ static int xtile_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	dma_addr_t dma_addr;
 	struct altera_dma_buffer *buffer = NULL;
 	int nfrags = skb_shinfo(skb)->nr_frags;
-	unsigned int nopaged_len = skb_headlen(skb);
+	unsigned int nopaged_len = 0;
 	struct intel_fpga_xtile_eth_private *priv = netdev_priv(dev);
 	unsigned int txsize = 0;
 	struct netdev_queue *txq;
@@ -1337,15 +1337,11 @@ static int xtile_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	if (priv->num_channels == 0)
 		return NETDEV_TX_BUSY;
 
-	if (skb->len < ETH_ZLEN) {
-		if (unlikely(skb_padto(skb, ETH_ZLEN))) {
-			dev_kfree_skb_any(skb);
-			return NETDEV_TX_OK;
-		}
-		skb->len = ETH_ZLEN;
-		nopaged_len = skb_headlen(skb);
+	if (unlikely(skb_padto(skb, ETH_ZLEN))) {
+		dev_kfree_skb_any(skb);
+		return NETDEV_TX_OK;
 	}
-
+	nopaged_len = skb_headlen(skb);
 	queue = skb_get_queue_mapping(skb);
 	if (queue >= MAX_DMA_CHANNELS) {
 		netdev_err(dev, "SKB Queue is wrong: %d %d %p", queue, MAX_DMA_CHANNELS, skb);
