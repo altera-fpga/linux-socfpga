@@ -4,8 +4,8 @@
  * Copyright (C) 2017-2023 Altera Corporation. All rights reserved.
  *
  * Author(s):
- *	Markos Papadonikolakis <markos.papadonikolakis@intel.com>
- *	Lubana Badakar <lubana.badakar@intel.com>
+ *	Markos Papadonikolakis <markos.papadonikolakis@altera.com>
+ *	Lubana Badakar <lubana.badakar@altera.com>
  */
 
  #include <linux/init.h>
@@ -64,9 +64,12 @@ static int intel_frequency_control_open(struct intel_freq_control_private *priv)
 	}
 
 	if (priv->intf_ops->clock_check(priv) != FREQ_CTRL_ERROR_SUCCESS) {
-		ret = -ENODEV;
+		ret = -EPROBE_DEFER;
 		goto err;
 	}
+
+	if (priv->intf_ops->init_handler)
+		priv->intf_ops->init_handler(priv);
 
 	priv->freqctrl_ops = intel_frequency_control_ops;
 
@@ -81,6 +84,9 @@ err:
 
 static void intel_frequency_control_close(struct intel_freq_control_private *priv)
 {
+	if (priv->intf_ops->shutdown_handler)
+		priv->intf_ops->shutdown_handler(priv);
+
 	flush_workqueue(priv->queued_work.workqueue);
 	destroy_workqueue(priv->queued_work.workqueue);
 	cancel_delayed_work_sync(&priv->pll_lock_dwork);
@@ -183,9 +189,6 @@ static void intel_fpga_fs_remove(struct platform_device *pdev)
 	struct intel_freq_control_private *priv =
 		dev_get_drvdata(&pdev->dev);
 
-	if (priv->intf_ops->shutdown_handler)
-		priv->intf_ops->shutdown_handler(priv->pll_dbg);
-
 	intel_frequency_control_close(priv);
 }
 
@@ -194,13 +197,14 @@ static const struct xtile_intf_ops zl_spi_data = {
 	.clock_cleaner = intel_freq_control_zl30793,
 	.clock_check = spi_dev_check_zl30793_clock,
 	.reset_pll_state = reset_dpll_mode,
-	.shutdown_handler = zl30733_dbgfs_remove,
 };
 
 static const struct xtile_intf_ops zl_i2c_data = {
+	.init_handler = i2c_dev_zl30733_init,
 	.client_validator = determine_i2c_client,
 	.clock_cleaner = intel_freq_control_zl30733,
 	.clock_check = i2c_dev_check_zl30733_clock,
+	.shutdown_handler = i2c_dev_zl30733_remove,
 };
 
 static const struct of_device_id intel_fpga_fs_ids[] = {
