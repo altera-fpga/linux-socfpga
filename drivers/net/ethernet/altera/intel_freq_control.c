@@ -8,18 +8,19 @@
  *	Lubana Badakar <lubana.badakar@altera.com>
  */
 
- #include <linux/init.h>
- #include <linux/kernel.h>
- #include <linux/module.h>
- #include <linux/workqueue.h>
- #include <linux/of_platform.h>
- #include <linux/platform_device.h>
- #include "intel_freq_control.h"
- #include "dpll/intel_freq_ctrl_common_spi.h"
- #include "dpll/intel_freq_ctrl_zl30793_spi.h"
- #include "dpll/intel_freq_ctrl_zl30733_i2c.h"
- #include "dpll/intel_freq_ctrl_common_i2c.h"
- #include "dpll/intel_freq_ctrl_zl30733_debugfs.h"
+#include <linux/init.h>
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/workqueue.h>
+#include <linux/of_platform.h>
+#include <linux/platform_device.h>
+#include "intel_freq_control.h"
+#include "dpll/intel_freq_ctrl_common_spi.h"
+#include "dpll/intel_freq_ctrl_zl30793_spi.h"
+#include "dpll/intel_freq_ctrl_zl30733_i2c.h"
+#include "dpll/intel_freq_ctrl_common_i2c.h"
+#include "dpll/intel_freq_ctrl_zl30733_debugfs.h"
+#include "dpll/intel_freq_ctrl_si5518_i2c.h"
 
 struct platform_device;
 
@@ -207,12 +208,22 @@ static const struct xtile_intf_ops zl_i2c_data = {
 	.shutdown_handler = i2c_dev_zl30733_remove,
 };
 
+static const struct xtile_intf_ops si_i2c_data = {
+	.client_validator = determine_i2c_client,
+	.clock_cleaner = intel_freq_control_i2c_si5518,
+	.clock_check = i2c_dev_check_si5518_clock,
+	.clock_pre_modify_check = si5518_clock_pre_modify_check,
+};
+
 static const struct of_device_id intel_fpga_fs_ids[] = {
 	{.compatible = "intel, freq-steering-zl-spi",
 	 .data = &zl_spi_data,
 	},
 	{.compatible = "intel, freq-steering-zl-i2c",
 	 .data = &zl_i2c_data,
+	},
+	{.compatible = "intel, freq-steering-si-i2c",
+	 .data = &si_i2c_data,
 	},
 	{},
 };

@@ -61,6 +61,8 @@ struct xtile_intf_ops {
 	int (*client_validator)(struct clock_cleaner *cc);
 	void (*clock_cleaner)(struct work_struct *ws);
 	int (*clock_check)(struct intel_freq_control_private *fq);
+	bool (*clock_pre_modify_check)(struct intel_freq_control_private *fq,
+				       long scaled_ppm);
 	int (*reset_pll_state)(struct intel_freq_control_private *priv);
 	void (*shutdown_handler)(struct intel_freq_control_private *priv);
 };
