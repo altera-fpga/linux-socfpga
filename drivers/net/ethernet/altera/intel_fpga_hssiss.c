@@ -37,7 +37,7 @@ static struct hssiss_salcmd_to_name salcmd_name[] = {
 	{SAL_ENABLE_LOOPBACK, 0x7, "SAL_ENABLE_LOOPBACK"},
 	{SAL_DISABLE_LOOPBACK, 0x8, "SAL_DISABLE_LOOPBACK"},
 	{SAL_RESET_MAC_STAT, 0x9, "SAL_RESET_MAC_STAT"},
-	{SAL_RSVD, 0xA, "SAL_RSVD"},
+	{SAL_SET_MTU, 0xA, "SAL_SET_MTU"},
 	{SAL_NCSI_GET_LINK_STS, 0xB, "SAL_NCSI_GET_LINK_STS"},
 	{SAL_FW_VERSION, 0xFF, "SAL_FW_VERSION"},
 };
@@ -79,7 +79,10 @@ int hssiss_set_mtu(struct platform_device *pdev, u32 cmd,
 {
 	struct hssiss_private *priv = platform_get_drvdata(pdev);
 
-	return priv->spec_ops->ops->set_mtu(pdev, cmd, priv_data);
+	if (priv->spec_ops->ops->set_mtu)
+		return priv->spec_ops->ops->set_mtu(pdev, cmd, priv_data);
+
+	return -EOPNOTSUPP;
 }
 
 static int hssiss_read_mac_stat(struct platform_device *pdev, u32 cmd,
@@ -390,6 +393,7 @@ static struct hssi_gen_ops hssi_gen_ops = {
 	.get_fw_version = hssidrv_get_fw_version,
 	.get_ncsi_link_status = hssidrv_ncsi_link_status,
 	.get_mtu = hssidrv_get_mtu,
+	.set_mtu = hssidrv_set_mtu,
 	.read_mac_stat = hssidrv_read_mac_stat,
 	.get_set_dr_profile = hssidrv_get_set_dr_profile,
 	.get_ethport_status = hssidrv_get_ethport_status,

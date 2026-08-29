@@ -374,8 +374,10 @@ static void xtile_free_tx_buffer(struct intel_fpga_xtile_eth_private *priv,
 			dma_unmap_page(priv->device, buffer->dma_addr,
 				       buffer->len, DMA_TO_DEVICE);
 		else
-			dma_unmap_single(priv->device, buffer->dma_addr,
-					 buffer->len, DMA_TO_DEVICE);
+			dma_unmap_single_attrs(priv->device,
+					       buffer->dma_addr, buffer->len,
+					       DMA_TO_DEVICE,
+					       DMA_ATTR_SKIP_CPU_SYNC);
 		buffer->dma_addr = 0;
 	}
 	if (buffer->skb) {
@@ -416,7 +418,8 @@ static int xtile_alloc_init_skbufs(struct intel_fpga_xtile_eth_private *priv, in
 		rx_fifo_csroffs(almost_empty_threshold));
 
 	/* Init Rx ring */
-	priv->dma_info[queue].dma_priv.rx_dma_buf_sz = priv->dev->mtu;
+	priv->dma_info[queue].dma_priv.rx_dma_buf_sz =
+		priv->dev->mtu + ETH_HLEN + VLAN_HLEN;
 	for (i = 0; i < rx_descs; i++) {
 		ret = xtile_init_rx_buffer(priv, &priv->dma_info[queue].dma_priv.rx_ring[i],
 					   priv->dma_info[queue].dma_priv.rx_dma_buf_sz);
@@ -485,7 +488,7 @@ static inline void xtile_rx_refill(struct intel_xtile_msgdma_info *dma)
 		if (likely(!dma->dma_priv.rx_ring[entry].skb)) {
 			ret = xtile_init_rx_buffer(priv,
 						   &dma->dma_priv.rx_ring[entry],
-						   priv->dev->mtu);
+						   dma->dma_priv.rx_dma_buf_sz);
 			if (unlikely(ret != 0))
 				break;
 			priv->spec_ops->dma_ops->add_rx_desc(&dma->dma_priv,
@@ -545,12 +548,6 @@ static int xtile_rx(struct intel_xtile_msgdma_info *dma, int limit)
 
 		dma->dma_priv.rx_ring[entry].skb = NULL;
 		skb_put(skb, pktlength);
-
-		/* make cache consistent with receive packet buffer */
-		dma_sync_single_for_cpu(priv->device,
-					dma->dma_priv.rx_ring[entry].dma_addr,
-					dma->dma_priv.rx_ring[entry].len,
-					DMA_FROM_DEVICE);
 
 		dma_unmap_single(priv->device,
 				 dma->dma_priv.rx_ring[entry].dma_addr,
@@ -1330,10 +1327,6 @@ static int xtile_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	txsize = priv->dma_info[queue].dma_priv.tx_ring_size;
 	txq = netdev_get_tx_queue(priv->dev, queue);
 
-	// pad with dummy bytes, DMA irq will stop otherwise
-	if (nopaged_len < 60)
-		nopaged_len = 60;
-
 	if (netif_tx_queue_stopped(txq) ||
 	    priv->dma_info[queue].napi_state != NAPI_ENABLED_TXREADY)
 		return NETDEV_TX_BUSY;
@@ -1361,8 +1354,6 @@ static int xtile_start_xmit(struct sk_buff *skb, struct net_device *dev)
 			       16, 1, skb->data, skb->len, true);
 	}
 
-	skb_reserve(skb, SKB_DMA_REALIGN);
-
 	/* Map the first skb fragment */
 	entry = priv->dma_info[queue].dma_priv.tx_prod % txsize;
 	buffer = &priv->dma_info[queue].dma_priv.tx_ring[entry];
@@ -1370,15 +1361,11 @@ static int xtile_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	/* buffer is created prior just to keep the spin lock section short */
 	dma_addr = dma_map_single(priv->device, skb->data,
 				  nopaged_len,
-			DMA_TO_DEVICE);
+				  DMA_TO_DEVICE);
 
 	/* Ref: https://www.kernel.org/doc/html/latest/core-api/dma-api-howto.html */
 	if (dma_mapping_error(priv->device, dma_addr)) {
 		netdev_err(priv->dev, "DMA mapping error\n");
-
-		dma_unmap_single(priv->device, dma_addr,
-				 nopaged_len,
-				DMA_TO_DEVICE);
 
 		dev->stats.tx_dropped++;
 		dev_kfree_skb_any(skb);
@@ -1389,10 +1376,6 @@ static int xtile_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	buffer->skb = skb;
 	buffer->dma_addr = dma_addr;
 	buffer->len = nopaged_len;
-
-	/* Push data out of the cache hierarchy into main memory */
-	dma_sync_single_for_device(priv->device, buffer->dma_addr,
-				   buffer->len, DMA_TO_DEVICE);
 
 	/* Provide a hardware time stamp if requested.  */
 	if (unlikely((skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP) &&
@@ -1505,7 +1488,7 @@ static void xtile_update_mtu(struct intel_fpga_xtile_eth_private *priv,
 {
 	unsigned int max_mtu = priv->dev->max_mtu;
 	unsigned int min_mtu = priv->dev->min_mtu;
-	struct set_mtu_data mtu;
+	struct set_mtu_data frame;
 
 	if (new_mtu < min_mtu || new_mtu > max_mtu) {
 		dev_err(&priv->pdev_hssi->dev,
@@ -1514,16 +1497,20 @@ static void xtile_update_mtu(struct intel_fpga_xtile_eth_private *priv,
 
 		if (new_mtu < min_mtu)
 			new_mtu = min_mtu;
-		else if (new_mtu > max_mtu)
+
+		if (new_mtu > max_mtu)
 			new_mtu = max_mtu;
 	}
 
-	mtu.port = priv->hssi_port;
-	mtu.max_rx_frame_size = new_mtu;
-	mtu.max_tx_frame_size = new_mtu;
-	hssiss_set_mtu(priv->pdev_hssi, SAL_SET_MTU, &mtu);
-
 	priv->dev->mtu = new_mtu;
+
+	new_mtu += ETH_HLEN + VLAN_HLEN;
+	new_mtu = min_t(unsigned int, new_mtu, IP_MAX_MTU);
+
+	frame.port = priv->hssi_port;
+	frame.max_rx_frame_size = new_mtu;
+	frame.max_tx_frame_size = new_mtu;
+	hssiss_set_mtu(priv->pdev_hssi, SAL_SET_MTU, &frame);
 }
 
 static int xtile_change_mtu(struct net_device *dev, int new_mtu)
@@ -1970,10 +1957,10 @@ static int intel_fpga_xtile_probe(struct platform_device *pdev)
 		goto err_free_netdev;
 	}
 
-	priv->dev->min_mtu = ETH_ZLEN;
-	priv->dev->max_mtu = ETH_MAX_MTU;
+	priv->dev->min_mtu = ETH_MIN_MTU;
+	priv->dev->max_mtu = IP_MAX_MTU;
 
-	new_mtu = VLAN_ETH_FRAME_LEN;
+	new_mtu = VLAN_ETH_DATA_LEN;
 
 	/* Get the mtu from the device tree. Note that the
 	 * "max-frame-size" parameter is actually mtu. Definition
@@ -2071,11 +2058,6 @@ static int intel_fpga_xtile_probe(struct platform_device *pdev)
 				dev_err(&pdev->dev, "cannot obtain rx-fifo-almost-empty\n");
 				priv->dma_info[queue].rx_fifo_almost_empty = 0x3000;
 			}
-
-			/* The DMA buffer size already accounts for an alignment bias
-			 * to avoid unaligned access exceptions for the NIOS processor,
-			 */
-			priv->dma_info[queue].dma_priv.rx_dma_buf_sz = priv->dev->mtu;
 			queue++;
 		}
 		if (dma_set_mask_and_coherent(priv->device,

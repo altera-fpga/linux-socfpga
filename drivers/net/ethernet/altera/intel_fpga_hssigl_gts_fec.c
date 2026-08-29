@@ -101,7 +101,7 @@ void gts_ui_adjustments_cancel_worker(intel_fpga_xtile_eth_private *priv)
 	cancel_work_sync(&priv->ui_worker);
 }
 
-#define MIN_UI_REF_TIME 5200
+#define MIN_UI_REF_TIME 5300
 static bool gts_ui_tx_tam_values(intel_fpga_xtile_eth_private *priv,
 				 u64 *tam_initial,
 				 u32 *tam_count_initial)

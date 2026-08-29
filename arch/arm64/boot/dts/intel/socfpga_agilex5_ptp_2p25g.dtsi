@@ -178,8 +178,8 @@
 						<0x45000180 0x00000020>,
 						<0x450001A0 0x00000020>,
 						<0x450001C0 0x00000010>;
-					tx-poll-freq=<256>;
-					rx-poll-freq=<256>;
+					tx-poll-freq=<1024>;
+					rx-poll-freq=<1024>;
 					rx-fifo-depth = <0x4000>;
 					tx-fifo-depth = <0x1000>;
 					rx-fifo-almost-full = <0x2000>;
@@ -261,8 +261,8 @@
 						<0x45000380 0x00000020>,
 						<0x450003A0 0x00000020>,
 						<0x450003C0 0x00000010>;
-					tx-poll-freq=<256>;
-					rx-poll-freq=<256>;
+					tx-poll-freq=<1024>;
+					rx-poll-freq=<1024>;
 					rx-fifo-depth = <0x4000>;
 					tx-fifo-depth = <0x1000>;
 					rx-fifo-almost-full = <0x2000>;
