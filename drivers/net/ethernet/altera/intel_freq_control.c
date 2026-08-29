@@ -69,9 +69,6 @@ static int intel_frequency_control_open(struct intel_freq_control_private *priv)
 		goto err;
 	}
 
-	if (priv->intf_ops->init_handler)
-		priv->intf_ops->init_handler(priv);
-
 	priv->freqctrl_ops = intel_frequency_control_ops;
 
 	pr_info("Clock cleaner [ %s ] identified\n",
@@ -181,6 +178,10 @@ static int intel_fpga_fs_probe(struct platform_device *pdev)
 	} else {
 		dev_err(&pdev->dev, "Device not detected which is unexpected, quitting");
 	}
+
+	if (priv->intf_ops->init_handler)
+		priv->intf_ops->init_handler(priv);
+
 clk_cleaner_err:
 	return ret;
 }
@@ -209,6 +210,7 @@ static const struct xtile_intf_ops zl_i2c_data = {
 };
 
 static const struct xtile_intf_ops si_i2c_data = {
+	.init_handler = i2c_dev_si5518_init,
 	.client_validator = determine_i2c_client,
 	.clock_cleaner = intel_freq_control_i2c_si5518,
 	.clock_check = i2c_dev_check_si5518_clock,

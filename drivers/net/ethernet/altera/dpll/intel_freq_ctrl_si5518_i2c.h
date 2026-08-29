@@ -14,5 +14,6 @@ void intel_freq_control_i2c_si5518(struct work_struct *work);
 int i2c_dev_check_si5518_clock(struct intel_freq_control_private *);
 bool si5518_clock_pre_modify_check(struct intel_freq_control_private *fq,
 				   long scaled_ppm);
+void i2c_dev_si5518_init(struct intel_freq_control_private *priv);
 
 #endif

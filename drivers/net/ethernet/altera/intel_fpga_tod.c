@@ -99,13 +99,13 @@ static int intel_fpga_tod_adjust_fine(struct ptp_clock_info *ptp,
 
 	/* If there is frequency steering hardware present then use the same */
 	if (priv->ptp_clockcleaner_enable && freq_priv && freq_priv->freqctrl_ops.freqctrl) {
-		if (scaled_ppm && freq_priv->intf_ops->clock_pre_modify_check) {
+		if (freq_priv->intf_ops->clock_pre_modify_check) {
 			if (freq_priv->intf_ops->clock_pre_modify_check(freq_priv, scaled_ppm)) {
 				freq_priv->queued_work.scaled_ppm = scaled_ppm;
 				freq_priv->freqctrl_ops.freqctrl(&freq_priv->queued_work);
 				return 0;
 			}
-		} else if (scaled_ppm) {
+		} else {
 			freq_priv->queued_work.scaled_ppm = scaled_ppm;
 			freq_priv->freqctrl_ops.freqctrl(&freq_priv->queued_work);
 			return 0;

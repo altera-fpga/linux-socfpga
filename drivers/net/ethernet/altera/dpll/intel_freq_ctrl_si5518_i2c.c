@@ -167,6 +167,8 @@ void intel_freq_control_i2c_si5518(struct work_struct *work)
 	p_work = container_of(work, struct freq_work, w);
 	scaled_ppm = p_work->scaled_ppm;
 	priv = container_of(p_work, struct intel_freq_control_private, queued_work);
+	if (priv->scaled_ppm_programmed == scaled_ppm)
+		return;
 
 	i2c_cli = priv->fc_acc_type.i2c_cli;
 
@@ -221,6 +223,8 @@ void intel_freq_control_i2c_si5518(struct work_struct *work)
                 ret = FREQ_CTRL_ERROR_FAIL;
 		goto si_freq_ctrl_err;
 	}
+
+	priv->scaled_ppm_programmed = scaled_ppm;
 
 si_freq_ctrl_err:
 	kfree(rxbuf);
@@ -706,6 +710,27 @@ static struct attribute *si5518_sysfs_attrs[] = {
 static const struct attribute_group si5518_attr_group = {
 	.attrs = si5518_sysfs_attrs,
 };
+
+
+void i2c_dev_si5518_init(struct intel_freq_control_private *priv)
+{
+	struct i2c_client *i2c_cli = priv->fc_acc_type.i2c_cli;
+
+	if (!i2c_cli) {
+		dev_warn(&i2c_cli->dev, "%s - Failed to initialized freq stering\n", __func__);
+		return;
+	}
+
+	/*
+	 * initialized the stering. Set saved scaled_ppm a different value
+	 * to make the initial zero scaled_ppm programmed successfully.
+	 */
+	priv->scaled_ppm_programmed = (10 << 16);
+	priv->queued_work.scaled_ppm = 0;
+	priv->freqctrl_ops.freqctrl(&priv->queued_work);
+	flush_workqueue(priv->queued_work.workqueue);
+	dev_info(&i2c_cli->dev, "%s - freq stering initialized\n", __func__);
+}
 
 int i2c_dev_check_si5518_clock(struct intel_freq_control_private *priv)
 {

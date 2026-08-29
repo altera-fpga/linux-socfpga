@@ -69,6 +69,7 @@ struct xtile_intf_ops {
 
 struct intel_freq_control_private {
 	u32 step_size;
+	long scaled_ppm_programmed;
 	struct freq_work queued_work;
 	struct intf_type fc_acc_type;
 	struct xtile_intf_ops  *intf_ops;
