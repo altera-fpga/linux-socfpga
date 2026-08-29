@@ -33,6 +33,8 @@
 #define FTILE_50G_RX_TX_MIN_UI          0x4F6DF1
 #define FTILE_50G_RX_TX_MAX_UI          0x4F7202
 
+#define MAX_TAM_SNAPSHOT_READ_VALID	5
+
 /* write protected read for the ui enable status */
 static inline bool wpr_get_uienable_status(intel_fpga_xtile_eth_private *priv)
 {
@@ -140,6 +142,7 @@ void ftile_ui_adjustments(struct work_struct *work)
 	u64 tx_tam_nth, rx_tam_nth;
 	u32 tx_tam_interval = 0, rx_tam_interval = 0;
 	u32 ptp_uim_tam_snapshot;
+	u32 snapshot_waitgaurd = 0;
 	u32 tx_tam_count, rx_tam_count;
 	u8  tx_tam_valid, rx_tam_valid;
 	u64 tx_tam_delta, rx_tam_delta;
@@ -159,6 +162,9 @@ void ftile_ui_adjustments(struct work_struct *work)
 	/* Set tam_snapshot to 1 to take the first snapshot of the Time of
 	 * Alignment marker (TAM)
 	 */
+	/* Clear snapshot first */
+	hssi_clear_bit_ba(pdev, HSSI_ETH_RECONFIG, chan,  eth_soft_csroffs(ptp_uim_tam_snapshot),
+			  ETH_TX_TAM_SNAPSHOT | ETH_RX_TAM_SNAPSHOT);
 	hssi_set_bit_ba(pdev, HSSI_ETH_RECONFIG, chan,  eth_soft_csroffs(ptp_uim_tam_snapshot),
 			ETH_TX_TAM_SNAPSHOT | ETH_RX_TAM_SNAPSHOT);
 
@@ -169,6 +175,10 @@ void ftile_ui_adjustments(struct work_struct *work)
 			dev_warn(priv->device, "%d - ptp_uim_tam_snapshot Reg: 0x%x 0x%lx 0x%lx\n",
 				 __LINE__, ptp_uim_tam_snapshot, ETH_TX_TAM_SNAPSHOT,
 				 ETH_RX_TAM_SNAPSHOT);
+		if (snapshot_waitgaurd++ > MAX_TAM_SNAPSHOT_READ_VALID) {
+			dev_err(priv->device, "1st Snapshot not valid. Retry...");
+			goto ui_restart;
+		}
 	} while ((ptp_uim_tam_snapshot & ETH_TX_TAM_SNAPSHOT) ||
 		 (ptp_uim_tam_snapshot & ETH_RX_TAM_SNAPSHOT));
 
@@ -192,10 +202,6 @@ void ftile_ui_adjustments(struct work_struct *work)
 	rx_tam_count_initial = (ptp_rx_uim_tam_info1 & ETH_RX_TAM_CNT_MASK) >> ETH_RX_TAM_CNT_SHIFT;
 	rx_tam_valid = (ptp_rx_uim_tam_info1 & ETH_RX_TAM_VALID) ? 1 : 0;
 
-	/* Clear snapshot */
-	hssi_clear_bit_ba(pdev, HSSI_ETH_RECONFIG, chan,  eth_soft_csroffs(ptp_uim_tam_snapshot),
-			  ETH_TX_TAM_SNAPSHOT | ETH_RX_TAM_SNAPSHOT);
-
 	if (!rx_tam_valid || !tx_tam_valid) {
 		dev_warn(priv->device, "%s: Initial rx_tam_valid=%u tx_tam_valid=%u\n", __func__,
 			 rx_tam_valid, tx_tam_valid);
@@ -205,9 +211,12 @@ void ftile_ui_adjustments(struct work_struct *work)
 	udelay(5300);
 
 	/* Request snapshot of Nth TX TAM and RX TAM */
+	/* Clear snapshot first*/
+	hssi_clear_bit_ba(pdev, HSSI_ETH_RECONFIG, chan,  eth_soft_csroffs(ptp_uim_tam_snapshot),
+			  ETH_TX_TAM_SNAPSHOT | ETH_RX_TAM_SNAPSHOT);
 	hssi_set_bit_ba(pdev, HSSI_ETH_RECONFIG, chan, eth_soft_csroffs(ptp_uim_tam_snapshot),
 			ETH_TX_TAM_SNAPSHOT | ETH_RX_TAM_SNAPSHOT);
-
+	snapshot_waitgaurd = 0;
 	do {
 		ptp_uim_tam_snapshot = hssi_csrrd32_ba(pdev, HSSI_ETH_RECONFIG, chan,
 						       eth_soft_csroffs(ptp_uim_tam_snapshot));
@@ -215,6 +224,10 @@ void ftile_ui_adjustments(struct work_struct *work)
 			dev_warn(priv->device, "%d - ptp_uim_tam_snapshot Reg: 0x%x 0x%lx 0x%lx\n",
 				 __LINE__, ptp_uim_tam_snapshot, ETH_TX_TAM_SNAPSHOT,
 				 ETH_RX_TAM_SNAPSHOT);
+		if (snapshot_waitgaurd++ > MAX_TAM_SNAPSHOT_READ_VALID) {
+			dev_err(priv->device, "Nth Snapshot not valid. Retry...");
+			goto ui_restart;
+		}
 	} while ((ptp_uim_tam_snapshot & ETH_TX_TAM_SNAPSHOT) ||
 		 (ptp_uim_tam_snapshot & ETH_RX_TAM_SNAPSHOT));
 
@@ -238,9 +251,6 @@ void ftile_ui_adjustments(struct work_struct *work)
 	rx_tam_count_nth = (ptp_rx_uim_tam_info1 & ETH_RX_TAM_CNT_MASK) >> ETH_RX_TAM_CNT_SHIFT;
 	rx_tam_valid = (ptp_rx_uim_tam_info1 & ETH_RX_TAM_VALID) ? 1 : 0;
 
-	/* Clear snapshot */
-	hssi_clear_bit_ba(pdev, HSSI_ETH_RECONFIG, chan, eth_soft_csroffs(ptp_uim_tam_snapshot),
-			  ETH_TX_TAM_SNAPSHOT | ETH_RX_TAM_SNAPSHOT);
 	if ((get_jiffies_64() - start_jiffies) > HZ) {
 		dev_warn(priv->device, "%s: 1st to Nth snapshot takes more than 1 second\n",
 			 __func__);
