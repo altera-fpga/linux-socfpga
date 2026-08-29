@@ -1986,14 +1986,14 @@ static int intel_fpga_xtile_probe(struct platform_device *pdev)
 		priv->dma_info[queue].dma_priv.msg_enable = netif_msg_init(debug,
 									   default_msg_level);
 	}
-
 	dev_hssi = of_parse_phandle(pdev->dev.of_node, "hssiss", 0);
-
 	if (dev_hssi) {
 		pdev_hssi = of_find_device_by_node(dev_hssi);
 		of_node_put(dev_hssi);
-		if (!pdev_hssi)
-			return -ENODEV;
+		if (!pdev_hssi) {
+			ret = -ENODEV;
+			goto err_free_netdev;
+		}
 		priv->pdev_hssi = pdev_hssi;
 	}
 
@@ -2006,25 +2006,19 @@ static int intel_fpga_xtile_probe(struct platform_device *pdev)
 			priv->hssi_rel_port = 0;
 		}
 
-	/* Get the HSSI node device from the device tree node */
-	/* get hssi port no from device tree */
-	if (of_property_read_u32(np, "hssi_relative_port",
-				 &priv->hssi_rel_port)) {
-		priv->hssi_rel_port = 0;
-	}
+		if (of_property_read_u32(np, "hssi_port",
+					 &priv->hssi_port)) {
+			dev_err(&pdev->dev, "cannot obtain hssi port info\n");
+			ret = -ENXIO;
+			goto err_free_netdev;
+		}
 
-	if (of_property_read_u32(np, "hssi_port",
-				 &priv->hssi_port)) {
-		dev_err(&pdev->dev, "cannot obtain hssi port info\n");
-		ret = -ENXIO;
-		goto err_free_netdev;
-	}
-
-	if (of_property_read_u32(np, "tile_chan",
-				 &priv->tile_chan)) {
-		dev_err(&pdev->dev, "cannot obtain tile channel info\n");
-		ret = -ENXIO;
-		goto err_free_netdev;
+		if (of_property_read_u32(np, "tile_chan",
+					 &priv->tile_chan)) {
+			dev_err(&pdev->dev, "cannot obtain tile channel info\n");
+			ret = -ENXIO;
+			goto err_free_netdev;
+		}
 	}
 	if (of_property_read_u32(np, "monitor_poll_interval",
 				 &priv->monitor_poll_interval)) {
@@ -2041,24 +2035,6 @@ static int intel_fpga_xtile_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "PTP requires modified dma\n");
 		ret = -ENODEV;
 		goto err_free_netdev;
-	}
-
-	/* Check TOD availability early to avoid wasting probe effort on
-	 * DMA mapping, IRQ registration and other setup when the TOD
-	 * driver has not yet been probed.
-	 */
-	if (priv->ptp_enable) {
-		dev_tod  = of_parse_phandle(pdev->dev.of_node, "tod", 0);
-		pdev_tod = of_find_device_by_node(dev_tod);
-		of_node_put(dev_tod);
-		if (pdev_tod)
-			priv->ptp_priv = dev_get_drvdata(&pdev_tod->dev);
-		if (!pdev_tod || !priv->ptp_priv) {
-			dev_err(&pdev->dev, "PTP clock not available, retry!\n");
-			ret = -EPROBE_DEFER;
-			goto err_free_netdev;
-		}
-		dev_info(&pdev->dev, "\tPTP Clock: %s\n", priv->ptp_priv->ptp_clock_ops.name);
 	}
 
 	priv->dev->min_mtu = ETH_MIN_MTU;
