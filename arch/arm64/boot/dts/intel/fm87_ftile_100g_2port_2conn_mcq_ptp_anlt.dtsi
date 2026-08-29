@@ -127,10 +127,10 @@
 			reg = <0x88070000 0x10000>;
 			reg-names = "pkt_cli";
 		};
-		ptp_bridge_0: ptp_bridge@81000000 {
+		packetswitch_0: packetswitch@81000000 {
 			compatible = "generic-uio";
 			reg = <0x88050000 0x10000>;
-			reg-names = "ptp_bridge";
+			reg-names = "packetswitch";
 		};
 		qsfp_eth1: qsfp-eth1 {
 			compatible = "intel,qsfp-mem";
