@@ -1453,9 +1453,6 @@ int ftile_init(intel_fpga_xtile_eth_private *priv)
 	if (priv->dr_supported)
 		priv->link_speed = hssi_get_active_profile_speed(priv->pdev_hssi);
 
-	if (priv->link_speed > 0)
-		ftile_pio_speed_set(priv, priv->hssi_rel_port, priv->link_speed);
-
 	return 0;
 }
 
@@ -1465,6 +1462,10 @@ int ftile_start(intel_fpga_xtile_eth_private *priv)
 
 	/* Get eth_rate */
 	ftile_convert_eth_speed_to_eth_rate(priv);
+
+	/* only when both speed is set for both ANLT/non-ANLT we set the bit */
+	if (priv->link_speed > 0)
+		ftile_pio_speed_set(priv, priv->hssi_rel_port, priv->link_speed);
 
 	/* Enable PTP feature */
 	if (priv->ptp_enable) {
