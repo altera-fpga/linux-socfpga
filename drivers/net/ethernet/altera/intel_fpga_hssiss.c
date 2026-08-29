@@ -330,10 +330,13 @@ static ssize_t hssi_hotplug_disable_store(struct device *dev,
 					  struct device_attribute *attr,
 					    const char *buf, size_t len)
 {
-	struct platform_device *pdev = to_platform_device(dev);
+	int ret;
 	int disable;
+	struct platform_device *pdev = to_platform_device(dev);
 
-	(void)kstrtouint(buf, 10, &disable);
+	ret = kstrtouint(buf, 10, &disable);
+	if (ret)
+		return -EINVAL;
 
 	hssiss_hotplug_enable(pdev, (disable ? false : true));
 
@@ -352,10 +355,13 @@ static ssize_t hssi_err_wa_show(struct device *dev,
 static ssize_t hssi_err_wa_store(struct device *dev,
 				 struct device_attribute *attr, const char *buf, size_t len)
 {
+	int ret;
 	struct platform_device *pdev = to_platform_device(dev);
 	struct hssiss_private *priv = platform_get_drvdata(pdev);
 
-	(void)kstrtouint(buf, 10, &priv->hssi_err_wa);
+	ret = kstrtouint(buf, 10, &priv->hssi_err_wa);
+	if (ret)
+		return -EINVAL;
 
 	return len;
 }
