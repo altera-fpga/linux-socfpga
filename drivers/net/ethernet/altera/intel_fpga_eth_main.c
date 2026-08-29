@@ -32,6 +32,7 @@
  #include "intel_fpga_eth_hssi_itf.h"
  #include "intel_fpga_eth_tile_ops.h"
  #include <linux/sched.h>
+ #include <net/pkt_sched.h>
 
 /* Module parameters */
 static int debug = -1;
@@ -626,20 +627,39 @@ static int xtile_tx_complete(struct intel_xtile_msgdma_info *dma)
 	return txcomplete;
 }
 
+#define XTILE_NUM_TX_BANDS  3
+static const u8 prio2band[TCQ_ETS_MAX_BANDS] = {1, 2, 2, 2, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1};
 static u16 xtile_select_queue(struct net_device *dev, struct sk_buff *skb,
-			      struct net_device *sb_dev)
+		struct net_device *sb_dev)
 {
-	int traffic_class = 0;
+	u32 num_queues = dev->real_num_tx_queues;
+	u32 flow_hash  = skb_get_hash(skb);
+	u32 base, rem;
+	u32 q_high, q_norm, q_bulk;
+	u8  band;
 
-	if (dev->real_num_tx_queues == 1)
+	band = prio2band[skb->priority & TC_PRIO_MAX];
+	if (num_queues <= 1) {
+		WARN_ON_ONCE(num_queues == 0);
 		return 0;
+	}
 
-	traffic_class = skb->priority;
-	// Assuming you have a one-to-one mapping between traffic classes and queues
-	if (traffic_class < dev->real_num_tx_queues)
-		return traffic_class;
-	else
-		return (dev->real_num_tx_queues - 1);
+	base   = num_queues / XTILE_NUM_TX_BANDS;
+	rem    = num_queues % XTILE_NUM_TX_BANDS;
+	q_high = base + (rem >= 1 ? 1 : 0);
+	q_norm = base + (rem >= 2 ? 1 : 0);
+	q_bulk = base;
+
+	if (band == 0)
+		return flow_hash % q_high;
+	if (band == 1)
+		return q_high + (flow_hash % q_norm);
+
+	/* Bulk: fall back to a norm-priority queue on 2-queue setups */
+	/* q_bulk == 0 only when num_queues == 2; q_norm == 1 in that case */
+	if (q_bulk == 0)
+		return q_high + (flow_hash % q_norm);
+	return q_high + q_norm + (flow_hash % q_bulk);
 }
 
 /* NAPI polling function
@@ -1055,7 +1075,6 @@ static void eth_monitor_link_status(struct work_struct *work)
 		schedule_delayed_work(&priv->dwork, msecs_to_jiffies(priv->monitor_poll_interval));
 }
 
- #define PRELOAD_LINK_STABILITY_COUNT 10
 static void start_link_monitoring_thread(struct intel_fpga_xtile_eth_private *priv)
 {
 	rpw_set_monitor_link_status(true, priv);
@@ -1317,6 +1336,15 @@ static int xtile_start_xmit(struct sk_buff *skb, struct net_device *dev)
 
 	if (priv->num_channels == 0)
 		return NETDEV_TX_BUSY;
+
+	if (skb->len < ETH_ZLEN) {
+		if (unlikely(skb_padto(skb, ETH_ZLEN))) {
+			dev_kfree_skb_any(skb);
+			return NETDEV_TX_OK;
+		}
+		skb->len = ETH_ZLEN;
+		nopaged_len = skb_headlen(skb);
+	}
 
 	queue = skb_get_queue_mapping(skb);
 	if (queue >= MAX_DMA_CHANNELS) {
