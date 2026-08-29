@@ -52,13 +52,28 @@
                         };
                 };
 
+		ptp_clockcleaner: ptp_clockcleaner {
+                        compatible = "intel, freq-steering-zl-spi";
+			dpll-name = "zl30793";
+			interface  = "spi";
+		        bus-num    = <0>;
+			chipselect = <0>;
+		};
+
                 tod_0_clk: tod_0_clk{
                         compatible = "intel, tod";
-                        reg-names = "tod_ctrl";
-                        reg = <0x81000040 0x00000040>;
+                        reg-names = "tod_ctrl",
+				    "pps_ctrl";
+                        reg = <0x81000000 0x00000040>,
+			      <0x81000100 0x00000040>;
+			interrupt-parent = <&intc>;
+			interrupt-names = "pps_irq";
+			interrupts = <0 40 4>;
                         clocks = <&tod_in_clock>;
-                        clock-names = "tod_clk";
+                        clock-names = "tod_clock";
                         status = "okay";
+			altr,has-ptp-clockcleaner;
+			clock-cleaner = <&ptp_clockcleaner>;
                 };
 
 	         hssiss_0_hssiss: hssiss_0_hssiss {
@@ -93,6 +108,7 @@
 				hssi_port = <0x8>;
 				tile_chan = <12>;
 				phy-mode = "10gbase-r";
+				monitor_poll_interval = <50>;
 				tod = <&tod_0_clk>;
 				qsfp = <&qsfp_eth0>;
 				hssiss = <&hssiss_0_hssiss>;
@@ -104,22 +120,23 @@
 				altr,rx-external-phy-delay-ns = <0x0>;
 				fec-cw-pos-rx = <0x3>;
 				fec-type="no-fec";
+				ui-adj-interval=<500>;
 				interrupt-parent = <&intc>;
 				interrupt-names = "tx_irq", "rx_irq";
 				interrupts = <0 24 4>, <0 25 4>;
+				tx-poll-freq=<1024>;
+				rx-poll-freq=<1024>;
 				rx-fifo-depth = <0x4000>;
 				tx-fifo-depth = <0x1000>;
 				rx-fifo-almost-full = <0x2000>;
 				rx-fifo-almost-empty = <0x1000>;
 				altr,has-ptp;
-				altr,has-ptp-clockcleaner;
 				status = "okay";
 				fixed-link {
 					speed =<10000>;
 					full-duplex;
 				};
 			};
-
 		hssi_1_eth: hssi_1_eth{
 
 				reg-names = "tx_pref"  ,
@@ -140,6 +157,7 @@
 				hssi_port = <0x9>;
 				tile_chan = <13>;
 				phy-mode = "10gbase-r";
+				monitor_poll_interval = <50>;
 				tod = <&tod_0_clk>;
 				qsfp = <&qsfp_eth0>;
 				hssiss = <&hssiss_0_hssiss>;
@@ -150,7 +168,10 @@
 				altr,tx-external-phy-delay-ns = <0x0>;
 				altr,rx-external-phy-delay-ns = <0x0>;
 				fec-cw-pos-rx = <0x3>;
+				tx-poll-freq=<1024>;
+				rx-poll-freq=<1024>;
 				fec-type="no-fec";
+				ui-adj-interval=<500>;
 				interrupt-parent = <&intc>;
 				interrupt-names = "tx_irq", "rx_irq";
 				interrupts = <0 26 4>, <0 27 4>;
@@ -159,7 +180,6 @@
 				rx-fifo-almost-full = <0x2000>;
 				rx-fifo-almost-empty = <0x1000>;
 				altr,has-ptp;
-				altr,has-ptp-clockcleaner;
 				status = "okay";
 				fixed-link {
 					speed =<10000>;
@@ -186,6 +206,9 @@
 				hssi_port = <0xa>;
 				tile_chan = <14>;
 				phy-mode = "10gbase-r";
+				monitor_poll_interval = <50>;
+				tx-poll-freq=<1024>;
+				rx-poll-freq=<1024>;
 				tod = <&tod_0_clk>;
 				qsfp = <&qsfp_eth0>;
 				hssiss = <&hssiss_0_hssiss>;
@@ -197,6 +220,7 @@
 				altr,rx-external-phy-delay-ns = <0x0>;
 				fec-cw-pos-rx = <0x3>;
 				fec-type="no-fec";
+				ui-adj-interval=<500>;
 				interrupt-parent = <&intc>;
 				interrupt-names = "tx_irq", "rx_irq";
 				interrupts = <0 28 4>, <0 29 4>;
@@ -205,7 +229,6 @@
 				rx-fifo-almost-full = <0x2000>;
 				rx-fifo-almost-empty = <0x1000>;
 				altr,has-ptp;
-				altr,has-ptp-clockcleaner;
 				status = "okay";
 				fixed-link {
 					speed =<10000>;
@@ -232,6 +255,9 @@
 				hssi_port = <0xb>;
 				tile_chan = <15>;
 				phy-mode = "10gbase-r";
+				monitor_poll_interval = <50>;
+				tx-poll-freq=<1024>;
+				rx-poll-freq=<1024>;
 				tod = <&tod_0_clk>;
 				qsfp = <&qsfp_eth0>;
 				hssiss = <&hssiss_0_hssiss>;
@@ -243,6 +269,7 @@
 				altr,rx-external-phy-delay-ns = <0x0>;
 				fec-cw-pos-rx = <0x3>;
 				fec-type="no-fec";
+				ui-adj-interval=<500>;
 				interrupt-parent = <&intc>;
 				interrupt-names = "tx_irq", "rx_irq";
 				interrupts = <0 30 4>, <0 31 4>;
@@ -251,7 +278,6 @@
 				rx-fifo-almost-full = <0x2000>;
 				rx-fifo-almost-empty = <0x1000>;
 				altr,has-ptp;
-				altr,has-ptp-clockcleaner;
 				status = "okay";
 				fixed-link {
 					speed =<10000>;
@@ -278,6 +304,9 @@
 				hssi_port = <0xc>;
 				tile_chan = <20>;
 				phy-mode = "10gbase-r";
+				monitor_poll_interval = <50>;
+				tx-poll-freq=<1024>;
+				rx-poll-freq=<1024>;
 				tod = <&tod_0_clk>;
 				qsfp = <&qsfp_eth1>;
 				hssiss = <&hssiss_0_hssiss>;
@@ -289,6 +318,7 @@
 				altr,rx-external-phy-delay-ns = <0x0>;
 				fec-cw-pos-rx = <0x3>;
 				fec-type="no-fec";
+				ui-adj-interval=<500>;
 				interrupt-parent = <&intc>;
 				interrupt-names = "tx_irq", "rx_irq";
 				interrupts = <0 32 4>, <0 33 4>;
@@ -297,7 +327,6 @@
 				rx-fifo-almost-full = <0x2000>;
 				rx-fifo-almost-empty = <0x1000>;
 				altr,has-ptp;
-				altr,has-ptp-clockcleaner;
 				status = "okay";
 				fixed-link {
 					speed =<10000>;
@@ -324,6 +353,9 @@
 				hssi_port = <0xd>;
 				tile_chan = <21>;
 				phy-mode = "10gbase-r";
+				monitor_poll_interval = <50>;
+				tx-poll-freq=<1024>;
+				rx-poll-freq=<1024>;
 				tod = <&tod_0_clk>;
 				qsfp = <&qsfp_eth1>;
 				hssiss = <&hssiss_0_hssiss>;
@@ -335,6 +367,7 @@
 				altr,rx-external-phy-delay-ns = <0x0>;
 				fec-cw-pos-rx = <0x3>;
 				fec-type="no-fec";
+				ui-adj-interval=<500>;
 				interrupt-parent = <&intc>;
 				interrupt-names = "tx_irq", "rx_irq";
 				interrupts = <0 34 4>, <0 35 4>;
@@ -343,7 +376,6 @@
 				rx-fifo-almost-full = <0x2000>;
 				rx-fifo-almost-empty = <0x1000>;
 				altr,has-ptp;
-				altr,has-ptp-clockcleaner;
 				status = "okay";
 				fixed-link {
 					speed =<10000>;
@@ -370,6 +402,9 @@
 				hssi_port = <0xe>;
 				tile_chan = <22>;
 				phy-mode = "10gbase-r";
+				monitor_poll_interval = <50>;
+				tx-poll-freq=<1024>;
+				rx-poll-freq=<1024>;
 				tod = <&tod_0_clk>;
 				qsfp = <&qsfp_eth1>;
 				hssiss = <&hssiss_0_hssiss>;
@@ -381,6 +416,7 @@
 				altr,rx-external-phy-delay-ns = <0x0>;
 				fec-cw-pos-rx = <0x3>;
 				fec-type="no-fec";
+				ui-adj-interval=<500>;
 				interrupt-parent = <&intc>;
 				interrupt-names = "tx_irq", "rx_irq";
 				interrupts = <0 36 4>, <0 37 4>;
@@ -389,7 +425,6 @@
 				rx-fifo-almost-full = <0x2000>;
 				rx-fifo-almost-empty = <0x1000>;
 				altr,has-ptp;
-				altr,has-ptp-clockcleaner;
 				status = "okay";
 				fixed-link {
 					speed =<10000>;
@@ -416,6 +451,9 @@
 				hssi_port = <0xf>;
 				tile_chan = <23>;
 				phy-mode = "10gbase-r";
+				monitor_poll_interval = <50>;
+				tx-poll-freq=<1024>;
+				rx-poll-freq=<1024>;
 				tod = <&tod_0_clk>;
 				qsfp = <&qsfp_eth1>;
 				hssiss = <&hssiss_0_hssiss>;
@@ -427,6 +465,7 @@
 				altr,rx-external-phy-delay-ns = <0x0>;
 				fec-cw-pos-rx = <0x3>;
 				fec-type="no-fec";
+				ui-adj-interval=<500>;
 				interrupt-parent = <&intc>;
 				interrupt-names = "tx_irq", "rx_irq";
 				interrupts = <0 38 4>, <0 39 4>;
@@ -435,14 +474,12 @@
 				rx-fifo-almost-full = <0x2000>;
 				rx-fifo-almost-empty = <0x1000>;
 				altr,has-ptp;
-				altr,has-ptp-clockcleaner;
 				status = "okay";
 				fixed-link {
 					speed =<10000>;
 					full-duplex;
 				};
 			};
-
                 qsfp_eth0: qsfp-eth0 {
                         compatible = "intel,qsfp-mem";
                         reg-names = "qsfp-mem-ctrl";
@@ -480,3 +517,12 @@
         status = "disabled";
 };
 
+&spi0 {
+	status = "okay";
+        
+	spidev@0 {
+		compatible = "linux,spidev";
+		spi-max-frequency = <10000000>;
+		reg = <0>;
+	};
+};
