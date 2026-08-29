@@ -142,7 +142,7 @@
                         ptp_tx_routing_adj = <52101>; //0.795 * 65536
                         ptp_rx_routing_adj = <51236>; //0.7818 * 65536
 			fixed-link {
-				speed = <10000>;
+				speed = <25000>;
 				full-duplex;
 			};
 			dma_0 {
@@ -222,7 +222,7 @@
                         ptp_rx_routing_adj = <51236>; //0.7818 * 65536
                         hssiss = <&hssiss_0_hssiss>;
                         fixed-link {
-                                speed = <10000>;
+                                speed = <25000>;
                                 full-duplex;
                         };
 

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /* Altera FPGA Ethernet MAC driver
- * Copyright (C) 2022,2025 Altera Corporation. All rights reserved
+ * Copyright (C) 2022,2026 Altera Corporation. All rights reserved
  *
  * Contributors:
  *	Preetam Narayan
@@ -70,12 +70,6 @@ static int dma_tx_num = TX_DESCRIPTORS;
 module_param(dma_tx_num, int, 0644);
 MODULE_PARM_DESC(dma_tx_num, "Number of descriptors in the TX list");
 
-/* Make sure DMA buffer size is larger than the max frame size
- * plus some alignment offset and a VLAN header. If the max frame size is
- * 1518, a VLAN header would be additional 4 bytes and additional
- * headroom for alignment is 2 bytes, 2048 is just fine.
- */
- #define INTEL_FPGA_RXDMABUFFER_SIZE	2048
  #define INTEL_FPGA_COAL_TIMER(x)	(jiffies + usecs_to_jiffies(x))
 
 /* Allow network stack to resume queueing packets after we've
@@ -327,12 +321,13 @@ static int xtile_init_rx_buffer(struct intel_fpga_xtile_eth_private *priv,
 				struct altera_dma_buffer *rxbuffer,
 				int len)
 {
-	rxbuffer->skb = netdev_alloc_skb(priv->dev, len);
+	rxbuffer->skb = netdev_alloc_skb(priv->dev, len + SKB_DMA_REALIGN);
 
 	if (!rxbuffer->skb)
 		return -ENOMEM;
 
 	skb_reserve(rxbuffer->skb, SKB_DMA_REALIGN);
+
 	rxbuffer->dma_addr = dma_map_single(priv->device,
 					    rxbuffer->skb->data,
 					    len, DMA_FROM_DEVICE);
@@ -421,6 +416,7 @@ static int xtile_alloc_init_skbufs(struct intel_fpga_xtile_eth_private *priv, in
 		rx_fifo_csroffs(almost_empty_threshold));
 
 	/* Init Rx ring */
+	priv->dma_info[queue].dma_priv.rx_dma_buf_sz = priv->dev->mtu;
 	for (i = 0; i < rx_descs; i++) {
 		ret = xtile_init_rx_buffer(priv, &priv->dma_info[queue].dma_priv.rx_ring[i],
 					   priv->dma_info[queue].dma_priv.rx_dma_buf_sz);
@@ -489,7 +485,7 @@ static inline void xtile_rx_refill(struct intel_xtile_msgdma_info *dma)
 		if (likely(!dma->dma_priv.rx_ring[entry].skb)) {
 			ret = xtile_init_rx_buffer(priv,
 						   &dma->dma_priv.rx_ring[entry],
-						   dma->dma_priv.rx_dma_buf_sz);
+						   priv->dev->mtu);
 			if (unlikely(ret != 0))
 				break;
 			priv->spec_ops->dma_ops->add_rx_desc(&dma->dma_priv,
@@ -1504,25 +1500,42 @@ static void xtile_set_rx_mode(struct net_device *dev)
 	/* Not Supported */
 }
 
-/* Change the MTU
- */
+static void xtile_update_mtu(struct intel_fpga_xtile_eth_private *priv,
+			     int new_mtu)
+{
+	unsigned int max_mtu = priv->dev->max_mtu;
+	unsigned int min_mtu = priv->dev->min_mtu;
+	struct set_mtu_data mtu;
+
+	if (new_mtu < min_mtu || new_mtu > max_mtu) {
+		dev_err(&priv->pdev_hssi->dev,
+			"WARNING:MTU size supported is: min(%u), max(%u) setting mtu to %u",
+			min_mtu, max_mtu, new_mtu);
+
+		if (new_mtu < min_mtu)
+			new_mtu = min_mtu;
+		else if (new_mtu > max_mtu)
+			new_mtu = max_mtu;
+	}
+
+	mtu.port = priv->hssi_port;
+	mtu.max_rx_frame_size = new_mtu;
+	mtu.max_tx_frame_size = new_mtu;
+	hssiss_set_mtu(priv->pdev_hssi, SAL_SET_MTU, &mtu);
+
+	priv->dev->mtu = new_mtu;
+}
+
 static int xtile_change_mtu(struct net_device *dev, int new_mtu)
 {
 	struct intel_fpga_xtile_eth_private *priv = netdev_priv(dev);
-	unsigned int max_mtu = priv->dev->max_mtu;
-	unsigned int min_mtu = priv->dev->min_mtu;
 
 	if (netif_running(dev)) {
 		netdev_err(dev, "must be stopped to change its MTU\n");
 		return -EBUSY;
 	}
 
-	if (new_mtu < min_mtu || new_mtu > max_mtu) {
-		netdev_err(dev, "invalid MTU, max MTU is: %u\n", max_mtu);
-		return -EINVAL;
-	}
-
-	dev->mtu = new_mtu;
+	xtile_update_mtu(priv, new_mtu);
 	netdev_update_features(dev);
 
 	return 0;
@@ -1771,7 +1784,7 @@ static void intel_fpga_xtile_get_pcs_fixed_state(struct phylink_config *config,
 
 	state->speed = priv->link_speed;
 	state->duplex = DUPLEX_FULL;
-	if (priv->autoneg == false)
+	if (!priv->autoneg)
 		state->an_complete = AUTONEG_DISABLE;
 	else
 		state->an_complete = AUTONEG_ENABLE;
@@ -1836,9 +1849,9 @@ static int intel_fpga_xtile_probe(struct platform_device *pdev)
 	struct platform_device *pdev_tod;
 	char dma_nodename[6];
 	int queue = 0;
+	u32 new_mtu = 0;
 	const char *if_name = NULL;
 	char irq_name[12];
-	struct set_mtu_data mtu;
 	const char *autoneg_enabled = "no";
 
 	np = pdev->dev.of_node;
@@ -1957,6 +1970,23 @@ static int intel_fpga_xtile_probe(struct platform_device *pdev)
 		goto err_free_netdev;
 	}
 
+	priv->dev->min_mtu = ETH_ZLEN;
+	priv->dev->max_mtu = ETH_MAX_MTU;
+
+	new_mtu = VLAN_ETH_FRAME_LEN;
+
+	/* Get the mtu from the device tree. Note that the
+	 * "max-frame-size" parameter is actually mtu. Definition
+	 * in the ePAPR v1.1 spec and usage differ, so go with usage.
+	 */
+	if (of_property_read_u32(pdev->dev.of_node, "max-frame-size",
+				 &new_mtu)) {
+		dev_warn(&pdev->dev, "Not able to get max-frame-size. Defaulting mtu to %d\n",
+			 new_mtu);
+	}
+
+	xtile_update_mtu(priv, new_mtu);
+
 	if (priv->num_channels != 0) {
 		netif_set_real_num_tx_queues(ndev, priv->num_channels);
 		queue = 0;
@@ -2045,7 +2075,7 @@ static int intel_fpga_xtile_probe(struct platform_device *pdev)
 			/* The DMA buffer size already accounts for an alignment bias
 			 * to avoid unaligned access exceptions for the NIOS processor,
 			 */
-			priv->dma_info[queue].dma_priv.rx_dma_buf_sz = INTEL_FPGA_RXDMABUFFER_SIZE;
+			priv->dma_info[queue].dma_priv.rx_dma_buf_sz = priv->dev->mtu;
 			queue++;
 		}
 		if (dma_set_mask_and_coherent(priv->device,
@@ -2056,31 +2086,6 @@ static int intel_fpga_xtile_probe(struct platform_device *pdev)
 			}
 		}
 	}
-
-	priv->dev->min_mtu = ETH_ZLEN + ETH_FCS_LEN;
-
-	/* Max MTU is 1500, ETH_DATA_LEN */
-	priv->dev->max_mtu = VLAN_ETH_FRAME_LEN + ETH_FCS_LEN;
-
-	/* Get the max mtu from the device tree. Note that the
-	 * "max-frame-size" parameter is actually max mtu. Definition
-	 * in the ePAPR v1.1 spec and usage differ, so go with usage.
-	 */
-	if (of_property_read_u32(pdev->dev.of_node, "max-frame-size",
-				 &priv->dev->max_mtu)) {
-		dev_warn(&pdev->dev, "Not able to get max-frame-size. Defaulting max_mtu to %d\n",
-			 priv->dev->max_mtu);
-	} else {
-		mtu.port = priv->hssi_port;
-		mtu.max_rx_frame_size = priv->dev->max_mtu;
-		mtu.max_tx_frame_size = priv->dev->max_mtu;
-		hssiss_set_mtu(priv->pdev_hssi, SAL_SET_MTU, &mtu);
-	}
-
-	/* The DMA buffer size already accounts for an alignment bias
-	 * to avoid unaligned access exceptions for the NIOS processor,
-	 */
-	priv->dma_priv.rx_dma_buf_sz = INTEL_FPGA_RXDMABUFFER_SIZE;
 
 	/* Get MAC PMA digital delays from device tree */
 	if (of_property_read_u32(np, "altr,tx-pma-delay-ns",
@@ -2201,7 +2206,7 @@ static int intel_fpga_xtile_probe(struct platform_device *pdev)
 				       &autoneg_enabled);
 	dev_info(&pdev->dev, "autoneg_enabled property: %s", autoneg_enabled);
 	priv->anlt = of_property_read_bool(pdev->dev.of_node,
-					      "altr,has-anlt");
+					   "altr,has-anlt");
 	priv->prev_anlt_err = -1;
 	priv->fec_type = fec_type_none;
 	if (priv->anlt) {
@@ -2275,8 +2280,7 @@ err_register_netdev:
 	for (queue = 0; queue < priv->num_channels; queue++)
 		netif_napi_del(&priv->dma_info[queue].napi);
 err_free_netdev:
-	if (priv->dma_info)
-		kfree(priv->dma_info);
+	kfree(priv->dma_info);
 	free_netdev(ndev);
 	return ret;
 }
@@ -2374,8 +2378,8 @@ static const struct xtile_spec_ops gts_data = {
 		.reg_ethtool_ops  =
 			intel_fpga_gts_set_ethtool_ops,
 		.check_dts_param = gts_check_dts_param,
-                .check_counter_complete =
-                        gts_check_counter_complete,
+		.check_counter_complete =
+			gts_check_counter_complete,
 	},
  #endif
 };
