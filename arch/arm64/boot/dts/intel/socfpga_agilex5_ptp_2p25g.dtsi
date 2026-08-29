@@ -126,7 +126,7 @@
 			qsfp = <&qsfp_eth0>;
 			tod = <&tod_0_clk>;
 			fec-type="kr-fec";
-			phy-mode = "25gbase-r";
+			phy-mode = "25gbase-kr";
 			fec-cw-pos-rx = <0x0>;
 			ui-adj-interval = <250>;
 			hssiss = <&hssiss_0_hssiss>;
@@ -206,7 +206,7 @@
                         qsfp = <&qsfp_eth1>;
                         tod = <&tod_0_clk>;
                         fec-type="kr-fec";
-                        phy-mode = "25gbase-r";
+                        phy-mode = "25gbase-kr";
                         fec-cw-pos-rx = <0x0>;
                         ui-adj-interval = <250>;
                         altr,tx-pma-delay-ns = <0xD>;
