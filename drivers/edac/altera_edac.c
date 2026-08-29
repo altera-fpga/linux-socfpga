@@ -2049,12 +2049,17 @@ altr_edac_a10_device_trig(struct file *file, const char __user *user_buf,
 	local_irq_save(flags);
 	if (trig_type == ALTR_UE_TRIGGER_CHAR) {
 		writew(priv->ue_set_mask, set_addr);
-		writew(priv->ue_set_mask >> ALTR_A10_ECC_INTTEST_PORTB_SHIFT,
-		       set_addr + ALTR_A10_ECC_INTTEST_PORTB_OFST);
+		/* Skip Port-B half when mask[31:16]==0: Agilex5 TRM forbids
+		 * writes to bytes 2-3 of emac/usb/ocram ECC (causes SError).
+		 */
+		if (priv->ue_set_mask >> ALTR_A10_ECC_INTTEST_PORTB_SHIFT)
+			writew(priv->ue_set_mask >> ALTR_A10_ECC_INTTEST_PORTB_SHIFT,
+			       set_addr + ALTR_A10_ECC_INTTEST_PORTB_OFST);
 	} else {
 		writew(priv->ce_set_mask, set_addr);
-		writew(priv->ce_set_mask >> ALTR_A10_ECC_INTTEST_PORTB_SHIFT,
-		       set_addr + ALTR_A10_ECC_INTTEST_PORTB_OFST);
+		if (priv->ce_set_mask >> ALTR_A10_ECC_INTTEST_PORTB_SHIFT)
+			writew(priv->ce_set_mask >> ALTR_A10_ECC_INTTEST_PORTB_SHIFT,
+			       set_addr + ALTR_A10_ECC_INTTEST_PORTB_OFST);
 	}
 
 	/* Ensure the interrupt test bits are set */
