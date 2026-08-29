@@ -17,6 +17,7 @@
 #include <linux/netdevice.h>
 #include <linux/phy.h>
 #include <linux/sfp.h>
+#include <linux/qsfp.h>
 #include <linux/phy/sfp-mem.h>
 #include <linux/phylink.h>
 #include "altera_eth_dma.h"
@@ -110,10 +111,14 @@ static int gts_get_module_info(struct net_device *dev,
 	if (!priv)
 		return -ENODEV;
 
-	if (!priv->phylink || !priv->dev || !priv->dev->sfp_bus)
-		return -ENODEV;
+	if (!priv->phylink || !priv->dev) {
+		if (priv->dev->sfp_bus)
+			return sfp_get_module_info(priv->dev->sfp_bus, info);
+		else if (priv->dev->qsfp_bus)
+			qsfp_get_module_info(priv->dev->qsfp_bus, info);
+	}
 
-	return sfp_get_module_info(priv->dev->sfp_bus, info);
+	return -ENODEV;
 }
 
 static int gts_get_module_eeprom(struct net_device *dev,
@@ -124,10 +129,16 @@ static int gts_get_module_eeprom(struct net_device *dev,
 	if (!priv)
 		return -ENODEV;
 
-	if (!priv->phylink || !priv->dev || !priv->dev->sfp_bus)
-		return -ENODEV;
+	if (!priv->phylink || !priv->dev) {
+		if (priv->dev->sfp_bus)
+			return sfp_get_module_eeprom(priv->dev->sfp_bus,
+						     eeprom, data);
+		else if (priv->dev->qsfp_bus)
+			return qsfp_get_module_eeprom(priv->dev->qsfp_bus,
+						      eeprom, data);
+	}
 
-	return sfp_get_module_eeprom(priv->dev->sfp_bus, eeprom, data);
+	return -ENODEV;
 }
 
 static int gts_get_module_eeprom_by_page(struct net_device *dev,
