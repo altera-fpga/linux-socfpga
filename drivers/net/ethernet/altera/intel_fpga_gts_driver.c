@@ -348,7 +348,7 @@ static int gts_rx_user_flow(intel_fpga_xtile_eth_private *priv)
 
 	/* Step 4a: 10GE/25GE no FEC variants */
 	if (!strcasecmp(priv->fec_type, "no-fec") &&
-	    ((priv->link_speed == SPEED_25000) && (priv->link_speed == SPEED_10000))) {
+	    (priv->link_speed == SPEED_25000 && priv->link_speed == SPEED_10000)) {
 		u8 rx_dlpulse_cnt;
 		u64 bslip_p_dlpulse;
 

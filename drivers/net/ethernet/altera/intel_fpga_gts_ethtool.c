@@ -102,8 +102,8 @@ static int gts_get_eeprom_len(struct net_device *dev)
 	return A0_EEPROM_SIZE;
 }
 
-static int gts_get_module_info (struct net_device *dev,
-				struct ethtool_modinfo *info)
+static int gts_get_module_info(struct net_device *dev,
+			       struct ethtool_modinfo *info)
 {
 	intel_fpga_xtile_eth_private *priv = netdev_priv(dev);
 
@@ -131,13 +131,13 @@ static int gts_get_module_eeprom(struct net_device *dev,
 }
 
 static int gts_get_module_eeprom_by_page(struct net_device *dev,
-                                         const struct ethtool_module_eeprom *page,
-                                         struct netlink_ext_ack *extack)
+					 const struct ethtool_module_eeprom *page,
+					 struct netlink_ext_ack *extack)
 {
-        intel_fpga_xtile_eth_private *priv = netdev_priv(dev);
+	intel_fpga_xtile_eth_private *priv = netdev_priv(dev);
 
 	if (!priv)
-                return -ENODEV;
+		return -ENODEV;
 
 	if (!priv->phylink || !priv->dev || !priv->dev->sfp_bus)
 		return -ENODEV;
@@ -159,8 +159,8 @@ static void gts_fill_stats(struct net_device *dev,
 	/* Tx packets */
 	buf[count++] = hssi_read_mac_stats64(pdev, hssi_port, MACSTAT_TX_PACKETS);
 
-        /* Tx SOP count*/
-        buf[count++] = hssi_read_mac_stats64(pdev, hssi_port, MACSTAT_TX_SOP_COUNT);
+	/* Tx SOP count*/
+	buf[count++] = hssi_read_mac_stats64(pdev, hssi_port, MACSTAT_TX_SOP_COUNT);
 
 	/* Tx total packets*/
 	buf[count++] = hssi_read_mac_stats64(pdev, hssi_port, MACSTAT_TX_TOTAL_PACKETS);
@@ -212,7 +212,7 @@ static void gts_fill_stats(struct net_device *dev,
 
 	/* Tx pause bytes */
 	buf[count++] = hssi_read_mac_stats64(pdev, hssi_port, MACSTAT_TX_PAUSE);
-	
+
 	/* Tx undersize*/
 	buf[count++] = hssi_read_mac_stats64(pdev, hssi_port, MACSTAT_TX_UNDERSIZE);
 
@@ -221,25 +221,25 @@ static void gts_fill_stats(struct net_device *dev,
 
 	/* Tx CRC error packets */
 	buf[count++] = hssi_read_mac_stats64(pdev, hssi_port, MACSTAT_TX_CRC_ERRORS);
-	
+
 	/* Tx Ethernet drops */
 	buf[count++] = hssi_read_mac_stats64(pdev, hssi_port, MACSTAT_TX_ETHER_DROPS);
 
 	/* Tx align error packets */
 	buf[count++] = hssi_read_mac_stats64(pdev, hssi_port, MACSTAT_TX_ALIGN_ERRORS);
-	
+
 	/* Tx error bytes */
 	buf[count++] = hssi_read_mac_stats64(pdev, hssi_port, MACSTAT_TX_ERRORS);
 
 	/* Rx packets */
 	buf[count++] = hssi_read_mac_stats64(pdev, hssi_port, MACSTAT_RX_PACKETS);
 
-        /* Rx SOP count*/
-        buf[count++] = hssi_read_mac_stats64(pdev, hssi_port, MACSTAT_RX_SOP_COUNT);
+	/* Rx SOP count*/
+	buf[count++] = hssi_read_mac_stats64(pdev, hssi_port, MACSTAT_RX_SOP_COUNT);
 
 	/* Rx total packets*/
 	buf[count++] = hssi_read_mac_stats64(pdev, hssi_port, MACSTAT_RX_TOTAL_PACKETS);
-	
+
 	/* Rx ptp bytes */
 	buf[count++] = hssi_read_mac_stats64(pdev, hssi_port, MACSTAT_RX_PTP_CTRL);
 
@@ -338,20 +338,26 @@ static int gts_reglen(struct net_device *dev)
 	return GTS_NUM_REGS * sizeof(u32);
 }
 
-#define FILLER_BYTES(in) do { buf[buf_index++] = 0; } while (false)
-#define FILLER_HARDIP_EMAC(in) FILLER_BYTES(hardip_xcvr_pma->(in))
+#define FILLER_BYTES(in) do { \
+				memset((u8 *)(buf + buf_index), 0, sizeof(in)); \
+				buf_index += sizeof(in) / sizeof(*buf);		       \
+			} while (false)
+
+#define FILLER_HARDIP_EMAC(in) FILLER_BYTES(eth_hardip_emac_csroffs(in))
+#define FILLER_HARDIP_XCVR_PMA(in) FILLER_BYTES(eth_hardip_xcvr_pma_csroffs(in))
+#define FILLER_HARDIP_PMA(in) FILLER_BYTES(eth_hardip_pma_csroffs(in))
+#define FILLER_SOFTIP(in) FILLER_BYTES(eth_soft_csroffs(in))
+#define FILLER_PTP_SOFTIP(in) FILLER_BYTES(eth_softip_ptp_csroffs(in))
+#define FILLER_HARDIP_PCS_FEC(in) FILLER_BYTES(eth_hardip_pcsfec_csroffs(in))
 
 static void gts_get_regs(struct net_device *dev, struct ethtool_regs *regs,
 			 void *regbuf)
 {
 	intel_fpga_xtile_eth_private *priv = netdev_priv(dev);
-	struct intel_fpga_gts_hardip_xcvr_pma *hardip_xcvr_pma;
 	struct platform_device *pdev  = priv->pdev_hssi;
 	u32 hssi_port = priv->hssi_port;
 	u32 *buf = regbuf;
 	u32 buf_index = 0;
-
-	hardip_xcvr_pma = NULL;
 
 	/* Set version to a known value, so ethtool knows
 	 * how to do any special formatting of this data.
@@ -861,68 +867,126 @@ static void gts_get_regs(struct net_device *dev, struct ethtool_regs *regs,
 					eth_hardip_emac_csroffs(rx_ts_ss_mid));
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_EMAC_HARDIP, hssi_port,
 					eth_hardip_emac_csroffs(rx_ts_ss_hi));
+
+	FILLER_HARDIP_XCVR_PMA(res0);
+
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_XCVR_PMA_HARDIP, hssi_port,
 					eth_hardip_xcvr_pma_csroffs(sm_xcvrif_debug1));
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_XCVR_PMA_HARDIP, hssi_port,
 					eth_hardip_xcvr_pma_csroffs(sm_xcvrif_reg_9));
+
+	FILLER_HARDIP_XCVR_PMA(res1);
+
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_XCVR_PMA_HARDIP, hssi_port,
 					eth_hardip_xcvr_pma_csroffs(xcvrif_stat_0));
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_XCVR_PMA_HARDIP, hssi_port,
 					eth_hardip_xcvr_pma_csroffs(xcvrif_stat_hold_1));
+
+	FILLER_HARDIP_XCVR_PMA(res2);
+
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_XCVR_PMA_HARDIP, hssi_port,
 					eth_hardip_xcvr_pma_csroffs(xcvrif_stat_3));
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_XCVR_PMA_HARDIP, hssi_port,
 					eth_hardip_xcvr_pma_csroffs(xcvrif_stat_hold_4));
+
+	FILLER_HARDIP_PMA(res1);
+
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_PMA_HARDIP, hssi_port,
 					eth_hardip_pma_csroffs(SRDS_IP_SYNTH_MED_reg_16));
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_PMA_HARDIP, hssi_port,
 					eth_hardip_pma_csroffs(SRDS_IP_SYNTH_MED_reg_17));
+	FILLER_HARDIP_PMA(res2);
+
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_PMA_HARDIP, hssi_port,
 					eth_hardip_pma_csroffs(SRDS_IP_SYNTH_SLOW_reg_16));
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_PMA_HARDIP, hssi_port,
 					eth_hardip_pma_csroffs(SRDS_IP_SYNTH_SLOW_reg_17));
+	FILLER_HARDIP_PMA(res3);
+
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_PMA_HARDIP, hssi_port,
 					eth_hardip_pma_csroffs(SRDS_IP_SYNTH_FAST_reg_37));
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_PMA_HARDIP, hssi_port,
 					eth_hardip_pma_csroffs(SRDS_IP_SYNTH_FAST_reg_38));
+	FILLER_HARDIP_PMA(res4);
+
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_PMA_HARDIP, hssi_port,
 					eth_hardip_pma_csroffs(SRDS_IP_LANE_reg_7));
+	FILLER_HARDIP_PMA(res5);
+
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_PMA_HARDIP, hssi_port,
 					eth_hardip_pma_csroffs(SRDS_IP_LANE_reg_9));
+	FILLER_HARDIP_PMA(res6);
+
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_PMA_HARDIP, hssi_port,
 					eth_hardip_pma_csroffs(SRDS_IP_LANE_reg_11));
+	FILLER_HARDIP_PMA(res7);
+
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_PMA_HARDIP, hssi_port,
 					eth_hardip_pma_csroffs(SRDS_IP_LANE_reg_110));
+	FILLER_HARDIP_PMA(res8);
+
+	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_PMA_HARDIP, hssi_port,
+					eth_hardip_pma_csroffs(SRDS_IP_LANE_reg_170));
+	FILLER_HARDIP_PMA(res8b);
+
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_PMA_HARDIP, hssi_port,
 					eth_hardip_pma_csroffs(SRDS_IP_LANE_reg_213));
+	FILLER_HARDIP_PMA(res9);
+
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_PMA_HARDIP, hssi_port,
 					eth_hardip_pma_csroffs(SRDS_IP_LANE_RXEQ_reg_5));
+	FILLER_HARDIP_PMA(res10);
+
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_PMA_HARDIP, hssi_port,
 					eth_hardip_pma_csroffs(SRDS_IP_LANE_RXEQ_reg_174));
+
+	FILLER_HARDIP_PMA(res11);
+
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_PMA_HARDIP, hssi_port,
 					eth_hardip_pma_csroffs(SRDS_IP_PLLLCSLOW_DIV0));
+	FILLER_HARDIP_PMA(res12);
+
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_PMA_HARDIP, hssi_port,
 					eth_hardip_pma_csroffs(SRDS_IP_PLLLCSLOW_FRAC_LOCK0));
+	FILLER_HARDIP_PMA(res13);
+
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_PMA_HARDIP, hssi_port,
 					eth_hardip_pma_csroffs(SRDS_IP_PLLLCMED_DIV0));
+	FILLER_HARDIP_PMA(res14);
+
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_PMA_HARDIP, hssi_port,
 					eth_hardip_pma_csroffs(SRDS_IP_PLLLCMED_FRAC_LOCK0));
+	FILLER_HARDIP_PMA(res15);
+
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_PMA_HARDIP, hssi_port,
 					eth_hardip_pma_csroffs(SRDS_IP_PLLLCFAST_DIV0));
+	FILLER_HARDIP_PMA(res16);
+
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_PMA_HARDIP, hssi_port,
 					eth_hardip_pma_csroffs(SRDS_IP_PLLLCFAST_FRAC_LOCK0));
+	FILLER_HARDIP_PMA(res17);
+
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_PMA_HARDIP, hssi_port,
 					eth_hardip_pma_csroffs(SRDS_IP_IF_debug));
+	FILLER_HARDIP_PMA(res18);
+
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_PMA_HARDIP, hssi_port,
 					eth_hardip_pma_csroffs(SRDS_IP_IF_TX1));
+	FILLER_HARDIP_PMA(res19);
+
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_PMA_HARDIP, hssi_port,
 					eth_hardip_pma_csroffs(SCMNG_PM_LINK_MNG_SIDE_CPI_REGS));
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_PMA_HARDIP, hssi_port,
 					eth_hardip_pma_csroffs(SCMNG_PM_PHY_SIDE_CPI_REGS));
+	FILLER_HARDIP_PMA(res20);
+
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_PMA_HARDIP, hssi_port,
 					eth_hardip_pma_csroffs(GTS_Physical_LANE_Number));
+	FILLER_HARDIP_PMA(res21);
+
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_PMA_HARDIP, hssi_port,
 					eth_hardip_pma_csroffs(pre_pma_lblk));
+
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_BASE_SOFTIP, hssi_port,
 					eth_soft_csroffs(gui_option));
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_BASE_SOFTIP, hssi_port,
@@ -941,6 +1005,8 @@ static void gts_get_regs(struct net_device *dev, struct ethtool_regs *regs,
 					eth_soft_csroffs(pcs_control));
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_BASE_SOFTIP, hssi_port,
 					eth_soft_csroffs(link_fault_status));
+	FILLER_SOFTIP(res1);
+
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_BASE_SOFTIP, hssi_port,
 					eth_soft_csroffs(clk_tx_khz));
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_BASE_SOFTIP, hssi_port,
@@ -953,12 +1019,17 @@ static void gts_get_regs(struct net_device *dev, struct ethtool_regs *regs,
 					eth_soft_csroffs(clk_rec_div64_khz));
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_BASE_SOFTIP, hssi_port,
 					eth_soft_csroffs(clk_rec_div_khz));
+	FILLER_SOFTIP(res2);
+
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_BASE_SOFTIP, hssi_port,
 					eth_soft_csroffs(status_signals));
+
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_PTP_SOFTIP, hssi_port,
 					eth_softip_ptp_csroffs(ptp_tx_tam_adjust));
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_PTP_SOFTIP, hssi_port,
 					eth_softip_ptp_csroffs(ptp_rx_tam_adjust));
+	FILLER_PTP_SOFTIP(res1);
+
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_PTP_SOFTIP, hssi_port,
 					eth_softip_ptp_csroffs(ptp_ref_lane));
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_PTP_SOFTIP, hssi_port,
@@ -979,12 +1050,19 @@ static void gts_get_regs(struct net_device *dev, struct ethtool_regs *regs,
 					eth_softip_ptp_csroffs(ptp_rx_uim_tam_info1));
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_PTP_SOFTIP, hssi_port,
 					eth_softip_ptp_csroffs(ptp_status));
+
+	FILLER_PTP_SOFTIP(res2);
+
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_PTP_SOFTIP, hssi_port,
 					eth_softip_ptp_csroffs(ptp_status2));
+	FILLER_PTP_SOFTIP(res3);
+
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_PTP_SOFTIP, hssi_port,
 					eth_softip_ptp_csroffs(ptp_tx_lane_calc_data_constdelay));
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_PTP_SOFTIP, hssi_port,
 					eth_softip_ptp_csroffs(ptp_rx_lane_calc_data_constdelay));
+	FILLER_PTP_SOFTIP(res4);
+
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_PTP_SOFTIP, hssi_port,
 					eth_softip_ptp_csroffs(ptp_tx_lane0_calc_data_offset));
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_PTP_SOFTIP, hssi_port,
@@ -997,44 +1075,59 @@ static void gts_get_regs(struct net_device *dev, struct ethtool_regs *regs,
 					eth_softip_ptp_csroffs(ptp_tx_lane0_calc_data_wiredelay));
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_PTP_SOFTIP, hssi_port,
 					eth_softip_ptp_csroffs(ptp_rx_lane0_calc_data_wiredelay));
+
+	FILLER_HARDIP_PCS_FEC(res1);
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_PCS_FEC_HARDIP, hssi_port,
 					eth_hardip_pcsfec_csroffs(config_ctrl));
+	FILLER_HARDIP_PCS_FEC(res2);
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_PCS_FEC_HARDIP, hssi_port,
 					eth_hardip_pcsfec_csroffs(tx_pld_conf));
+	FILLER_HARDIP_PCS_FEC(res3);
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_PCS_FEC_HARDIP, hssi_port,
 					eth_hardip_pcsfec_csroffs(phy_ehip_pcs_modes));
+	FILLER_HARDIP_PCS_FEC(res4);
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_PCS_FEC_HARDIP, hssi_port,
 					eth_hardip_pcsfec_csroffs(xus_timer_window));
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_PCS_FEC_HARDIP, hssi_port,
 					eth_hardip_pcsfec_csroffs(ber_invalid_count));
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_PCS_FEC_HARDIP, hssi_port,
 					eth_hardip_pcsfec_csroffs(err_inj));
+	FILLER_HARDIP_PCS_FEC(res5);
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_PCS_FEC_HARDIP, hssi_port,
 					eth_hardip_pcsfec_csroffs(phy_frame_error));
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_PCS_FEC_HARDIP, hssi_port,
 					eth_hardip_pcsfec_csroffs(phy_rxpcs_status));
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_PCS_FEC_HARDIP, hssi_port,
 					eth_hardip_pcsfec_csroffs(am_lock));
+	FILLER_HARDIP_PCS_FEC(res6);
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_PCS_FEC_HARDIP, hssi_port,
 					eth_hardip_pcsfec_csroffs(ber_count));
+	FILLER_HARDIP_PCS_FEC(res7);
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_PCS_FEC_HARDIP, hssi_port,
 					eth_hardip_pcsfec_csroffs(err_block_cnt));
+	FILLER_HARDIP_PCS_FEC(res8);
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_PCS_FEC_HARDIP, hssi_port,
 					eth_hardip_pcsfec_csroffs(rsfec_tx_top));
+	FILLER_HARDIP_PCS_FEC(res9);
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_PCS_FEC_HARDIP, hssi_port,
 					eth_hardip_pcsfec_csroffs(rsfec_lane_cfg0));
+	FILLER_HARDIP_PCS_FEC(res10);
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_PCS_FEC_HARDIP, hssi_port,
 					eth_hardip_pcsfec_csroffs(rsfec_err_inj_tx));
+	FILLER_HARDIP_PCS_FEC(res11);
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_PCS_FEC_HARDIP, hssi_port,
 					eth_hardip_pcsfec_csroffs(rsfec_lane_tx_stat));
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_PCS_FEC_HARDIP, hssi_port,
 					eth_hardip_pcsfec_csroffs(rsfec_lane_tx_hold));
+	FILLER_HARDIP_PCS_FEC(res12);
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_PCS_FEC_HARDIP, hssi_port,
 					eth_hardip_pcsfec_csroffs(rsfec_lane_rx_stat));
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_PCS_FEC_HARDIP, hssi_port,
 					eth_hardip_pcsfec_csroffs(rsfec_lane_rx_hold));
+	FILLER_HARDIP_PCS_FEC(res13);
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_PCS_FEC_HARDIP, hssi_port,
 					eth_hardip_pcsfec_csroffs(rsfec_cw_pos_rx));
+	FILLER_HARDIP_PCS_FEC(res14);
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_PCS_FEC_HARDIP, hssi_port,
 					eth_hardip_pcsfec_csroffs(rsfec_err_val_tx));
 	buf[buf_index++] = hssi_csrrd32(pdev, HSSI_PCS_FEC_HARDIP, hssi_port,

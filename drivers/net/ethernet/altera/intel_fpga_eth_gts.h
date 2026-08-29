@@ -809,9 +809,9 @@ struct intel_fpga_gts_hardip_pma {
 	u32 res19[(0xA403C - 0x97834) / 4];	  // 0x97834..0xA403C
 	u32 SCMNG_PM_LINK_MNG_SIDE_CPI_REGS;  // 0xA403C
 	u32 SCMNG_PM_PHY_SIDE_CPI_REGS;       // 0xA4040
-	u32 res21[(0xA5000 - 0xA4044) / 4];
+	u32 res20[(0xA5000 - 0xA4044) / 4];
 	u32 GTS_Physical_LANE_Number;         // 0xA5000
-	u32 res22[(0xA5044 - 0xA5004) / 4];
+	u32 res21[(0xA5044 - 0xA5004) / 4];
 	u32 pre_pma_lblk;                     // 0xA5044
 };
 
