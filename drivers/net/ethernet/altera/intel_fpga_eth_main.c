@@ -1865,6 +1865,7 @@ static int intel_fpga_xtile_probe(struct platform_device *pdev)
 
 	priv->pcs.ops = &intel_fpga_xtile_pcs_ops;
 	priv->pcs.poll = true;
+	priv->dma_info = 0;
 
 	op_ptr = of_device_get_match_data(&pdev->dev);
 
@@ -2163,7 +2164,7 @@ static int intel_fpga_xtile_probe(struct platform_device *pdev)
 	ret = of_get_phy_mode(np, &priv->phy_iface);
 	if (ret) {
 		dev_err(&pdev->dev, "incorrect phy-mode\n");
-		goto err_free_netdev;
+		goto err_register_netdev;
 	}
 
 	if (priv->ptp_enable) {
@@ -2174,7 +2175,7 @@ static int intel_fpga_xtile_probe(struct platform_device *pdev)
 		if (!pdev_tod || !priv->ptp_priv) {
 			dev_err(&pdev->dev, "PTP clock not available, retry!\n");
 			ret = -EPROBE_DEFER;
-			goto err_free_netdev;
+			goto err_register_netdev;
 		}
 		dev_info(&pdev->dev, "\tPTP Clock: %s\n", priv->ptp_priv->ptp_clock_ops.name);
 	}
@@ -2192,7 +2193,7 @@ static int intel_fpga_xtile_probe(struct platform_device *pdev)
 	if (IS_ERR(priv->phylink)) {
 		dev_err(&pdev->dev, "failed to create phylink\n");
 		ret = PTR_ERR(priv->phylink);
-		goto err_free_netdev;
+		goto err_register_netdev;
 	}
 
 	/* Check autoneg */
@@ -2234,7 +2235,7 @@ static int intel_fpga_xtile_probe(struct platform_device *pdev)
 		} else {
 			dev_err(&pdev->dev, "fixed link property undefined\n");
 			ret = -ENODEV;
-			goto err_free_netdev;
+			goto err_register_netdev;
 		}
 	}
 
@@ -2275,7 +2276,8 @@ err_register_netdev:
 	for (queue = 0; queue < priv->num_channels; queue++)
 		netif_napi_del(&priv->dma_info[queue].napi);
 err_free_netdev:
-	kfree(priv->dma_info);
+	if (priv->dma_info)
+		kfree(priv->dma_info);
 	free_netdev(ndev);
 	return ret;
 }
