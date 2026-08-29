@@ -45,7 +45,7 @@ static inline void rpw_set_uienable_status(bool value,
 	write_unlock(&priv->wr_lock);
 }
 
-void etile_ui_adjustments_worker_handle(struct timer_list *t) //timer handler
+static void etile_ui_adjustments_worker_handle(struct timer_list *t) //timer handler
 {
 	intel_fpga_xtile_eth_private *priv = timer_container_of(priv, t, fec_timer);
 
