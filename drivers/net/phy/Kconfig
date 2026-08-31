@@ -82,6 +82,14 @@ config SFP
 	depends on HWMON || HWMON=n
 	select MDIO_I2C
 
+config QSFP
+	tristate "QSFP cage support"
+	depends on I2C && PHYLINK
+	depends on HWMON || HWMON=n
+	select MDIO_I2C
+	help
+	  Currently supports SFF-8636 Rev2.9 QSFP connectors or cables.
+
 config SFP_MEM_CORE
         tristate "SFP Controller subsystem core code" if COMPILE_TEST
         depends on HWMON || HWMON=n

@@ -67,6 +67,7 @@ struct netdev_config;
 struct netdev_name_node;
 struct sd_flow_limit;
 struct sfp_bus;
+struct qsfp_bus;
 /* 802.11 specific */
 struct wireless_dev;
 /* 802.15.4 specific */
@@ -2011,6 +2012,7 @@ enum netdev_reg_state {
  *	@phydev:	Physical device may attach itself
  *			for hardware timestamping
  *	@sfp_bus:	attached &struct sfp_bus structure.
+ *	@qsfp_bus:	attached &struct qsfp_bus structure.
  *
  *	@qdisc_tx_busylock: lockdep class annotating Qdisc->busylock spinlock
  *
@@ -2439,6 +2441,7 @@ struct net_device {
 	struct phy_link_topology	*link_topo;
 	struct phy_device	*phydev;
 	struct sfp_bus		*sfp_bus;
+	struct qsfp_bus		*qsfp_bus;
 	struct lock_class_key	*qdisc_tx_busylock;
 	bool			proto_down;
 	bool			irq_affinity_auto;
