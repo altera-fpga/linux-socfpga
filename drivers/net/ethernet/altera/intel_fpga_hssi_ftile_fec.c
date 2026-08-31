@@ -57,9 +57,25 @@ static void get_min_max_ui(intel_fpga_xtile_eth_private *priv, u64 *min_ui, u64 
 
 void ftile_ui_adjustments_worker_handle(struct timer_list *t)
 {
-	intel_fpga_xtile_eth_private *priv = from_timer(priv, t, fec_timer);
+	intel_fpga_xtile_eth_private *priv = timer_container_of(priv, t, fec_timer);
 
 	schedule_work(&priv->ui_worker);
+}
+
+void ui_adjustments_cancel_worker(intel_fpga_xtile_eth_private *priv)
+{
+
+        /* if the ui adjustment timer is already cancelled and we request
+         * cancel again, case should be avoided
+         */
+        if (priv->ui_enable) {
+		/*  we cancel the timer so that it doesn't schedule new
+		 * worker thread execution
+		 */
+		priv->ui_enable = false;
+		timer_delete_sync(&priv->fec_timer);
+		cancel_work_sync(&priv->ui_worker);
+	}
 }
 
 void ftile_ui_adjustments_init_worker(intel_fpga_xtile_eth_private *priv)
