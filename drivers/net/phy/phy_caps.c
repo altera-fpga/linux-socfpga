@@ -358,10 +358,14 @@ unsigned long phy_caps_from_interface(phy_interface_t interface)
 
 	case PHY_INTERFACE_MODE_50GBASER:
 	case PHY_INTERFACE_MODE_LAUI:
+	case PHY_INTERFACE_MODE_50GKR:
+	case PHY_INTERFACE_MODE_50GKP:
 		link_caps |= BIT(LINK_CAPA_50000FD);
 		break;
 
 	case PHY_INTERFACE_MODE_100GBASEP:
+	case PHY_INTERFACE_MODE_100GKR:
+	case PHY_INTERFACE_MODE_100GKP:
 		link_caps |= BIT(LINK_CAPA_100000FD);
 		break;
 

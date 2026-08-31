@@ -35,6 +35,7 @@
 
 /* Module parameters */
 static int debug = -1;
+static char *fec_type_none = "none";
 
 module_param(debug, int, MOD_PARAM_PERM);
 MODULE_PARM_DESC(debug,
@@ -985,6 +986,7 @@ static void eth_monitor_link_status(struct work_struct *work)
 {
 	bool link = false;
 	int tile_error = 0;
+	int ret = 0;
 	struct delayed_work *dwork = to_delayed_work(work);
 	struct intel_fpga_xtile_eth_private *priv = container_of(dwork,
 							  struct intel_fpga_xtile_eth_private,
@@ -1008,7 +1010,17 @@ static void eth_monitor_link_status(struct work_struct *work)
 
 	switch (priv->link_state) {
 	case ETH_LINK_STATE_RESET:
-		priv->link_state = ETH_LINK_STATE_START;
+	case ETH_LINK_STATE_ANLT:
+		if (priv->anlt && priv->autoneg) {
+			ret = altera_fpga_anlt_get_capabilities(priv);
+			if ((ret ^ priv->prev_anlt_err) != 0)
+				dev_err(priv->device, "ANLT :  %s", get_anlt_error(ret));
+			if (!ret)
+				priv->link_state = ETH_LINK_STATE_START;
+			priv->prev_anlt_err = ret;
+		} else {
+			priv->link_state = ETH_LINK_STATE_START;
+		}
 		break;
 	case ETH_LINK_STATE_START:
 		if (link) {
@@ -1021,6 +1033,8 @@ static void eth_monitor_link_status(struct work_struct *work)
 				eth_link_up(priv);
 				priv->link_state = ETH_LINK_STATE_RUN;
 			}
+		} else {
+			priv->link_state = ETH_LINK_STATE_RESET;
 		}
 		break;
 	case ETH_LINK_STATE_STOP:
@@ -1081,6 +1095,23 @@ static int xtile_open(struct net_device *dev)
 	 * emib interface, mac, pcs, fec, pma, stat for both tx and rx
 	 * different for etile aand  ftile
 	 */
+	if (priv->anlt) {
+		if (priv->autoneg) {
+			ret = hssi_anlt_enable(priv->pdev_hssi, priv->hssi_port);
+			if (ret == -EINVAL)
+				netdev_info(dev, "ANLT already enabled\n");
+			else if (ret == -EIO)
+				netdev_err(dev, "Could not enable ANLT(register write failed)\n");
+			else
+				netdev_info(dev, "ANLT enabled\n");
+		} else {
+			ret = hssi_anlt_disable(priv->pdev_hssi, priv->hssi_port);
+			if (ret == -EINVAL)
+				netdev_info(dev, "ANLT already disabled\n");
+			else
+				netdev_info(dev, "ANLT disabled\n");
+		}
+	}
 	if (priv->spec_ops->tile.deassert_reset)
 		priv->spec_ops->tile.deassert_reset(priv);
 
@@ -1104,7 +1135,9 @@ static int xtile_open(struct net_device *dev)
 	/* clear the MAC layer statistics to start afresh */
 	xtile_clear_mac_statistics(pdev, hssi_port);
 
-	/* we need to clear the dev stats so that the ifconfig on interface shouldn't show old data */
+	/* we need to clear the dev stats so that the ifconfig on interface
+	 * shouldn't show old data
+	 */
 	memset(&dev->stats, 0, sizeof(dev->stats));
 
 	for (queue = 0; queue < priv->num_channels; queue++) {
@@ -1193,6 +1226,7 @@ phy_error:
 static int xtile_shutdown(struct net_device *dev)
 {
 	int queue = 0;
+	int ret = 0;
 	struct intel_fpga_xtile_eth_private *priv = netdev_priv(dev);
 
 	stop_link_monitoring_thread(priv);
@@ -1202,6 +1236,10 @@ static int xtile_shutdown(struct net_device *dev)
 
 	eth_link_down(priv);
 
+	if (priv->anlt) {
+		if (priv->autoneg)
+			ret = hssi_anlt_disable(priv->pdev_hssi, priv->hssi_port);
+	}
 	/* Disable CPU interrupts.DMA intrs are already disabled in eth_link_down */
 	for (queue = 0; queue < priv->num_channels; queue++) {
 		xtile_modify_cpu_disable_intr(priv, queue);
@@ -1589,7 +1627,10 @@ static int intel_fpga_xtile_validate(struct phylink_pcs *pcs,
 	if (state->interface != PHY_INTERFACE_MODE_NA &&
 	    state->interface != PHY_INTERFACE_MODE_10GKR &&
 	    state->interface != PHY_INTERFACE_MODE_10GBASER &&
-	    state->interface != PHY_INTERFACE_MODE_25GKR) {
+	    state->interface != PHY_INTERFACE_MODE_25GKR &&
+	    state->interface != PHY_INTERFACE_MODE_50GKP &&
+	    state->interface != PHY_INTERFACE_MODE_50GKR &&
+	    state->interface != PHY_INTERFACE_MODE_100GKP) {
 		bitmap_zero(supported, __ETHTOOL_LINK_MODE_MASK_NBITS);
 		return 0;
 	}
@@ -1636,6 +1677,42 @@ static int intel_fpga_xtile_validate(struct phylink_pcs *pcs,
 		phylink_set(mac_supported, 25000baseKR_Full);
 		phylink_set(mac_supported, 25000baseSR_Full);
 		state->speed = SPEED_25000;
+		break;
+	case PHY_INTERFACE_MODE_50GKP:
+	case PHY_INTERFACE_MODE_50GKR:
+		phylink_set(mask, 50000baseCR2_Full);
+		phylink_set(mac_supported, 50000baseCR2_Full);
+		phylink_set(mask, 50000baseKR2_Full);
+		phylink_set(mac_supported, 50000baseKR2_Full);
+		phylink_set(mask, 50000baseKR_Full);
+		phylink_set(mac_supported, 50000baseKR_Full);
+		phylink_set(mask, 50000baseSR_Full);
+		phylink_set(mac_supported, 50000baseSR_Full);
+		phylink_set(mask, 50000baseCR_Full);
+		phylink_set(mac_supported, 50000baseCR_Full);
+		phylink_set(mask, 50000baseLR_ER_FR_Full);
+		phylink_set(mac_supported, 50000baseLR_ER_FR_Full);
+		phylink_set(mask, 50000baseLR_ER_FR_Full);
+		phylink_set(mac_supported, 50000baseDR_Full);
+		state->speed = SPEED_50000;
+		break;
+	case PHY_INTERFACE_MODE_100GKP:
+	case PHY_INTERFACE_MODE_100GKR:
+		phylink_set(mask, 100000baseCR4_Full);
+		phylink_set(mac_supported, 100000baseCR4_Full);
+		phylink_set(mask, 100000baseKR4_Full);
+		phylink_set(mac_supported, 100000baseKR4_Full);
+		phylink_set(mask, 100000baseKR2_Full);
+		phylink_set(mac_supported, 50000baseKR2_Full);
+		phylink_set(mask, 100000baseSR2_Full);
+		phylink_set(mac_supported, 100000baseSR2_Full);
+		phylink_set(mask, 100000baseCR2_Full);
+		phylink_set(mac_supported, 50000baseCR2_Full);
+		phylink_set(mask, 100000baseLR2_ER2_FR2_Full);
+		phylink_set(mac_supported, 100000baseLR2_ER2_FR2_Full);
+		phylink_set(mask, 100000baseDR2_Full);
+		phylink_set(mac_supported, 100000baseDR2_Full);
+		state->speed = SPEED_100000;
 	default:
 		break;
 	}
@@ -1694,9 +1771,10 @@ static void intel_fpga_xtile_get_pcs_fixed_state(struct phylink_config *config,
 
 	state->speed = priv->link_speed;
 	state->duplex = DUPLEX_FULL;
-	state->an_complete = AUTONEG_ENABLE;
-	if (priv->autoneg)
+	if (priv->autoneg == false)
 		state->an_complete = AUTONEG_DISABLE;
+	else
+		state->an_complete = AUTONEG_ENABLE;
 }
 
 static void intel_fpga_xtile_mac_config(struct phylink_config *config,
@@ -1761,6 +1839,7 @@ static int intel_fpga_xtile_probe(struct platform_device *pdev)
 	const char *if_name = NULL;
 	char irq_name[12];
 	struct set_mtu_data mtu;
+	const char *autoneg_enabled = "no";
 
 	np = pdev->dev.of_node;
 
@@ -1992,7 +2071,8 @@ static int intel_fpga_xtile_probe(struct platform_device *pdev)
 			 priv->dev->max_mtu);
 	} else {
 		mtu.port = priv->hssi_port;
-		mtu.max_tx_frame_size = mtu.max_rx_frame_size = priv->dev->max_mtu;
+		mtu.max_rx_frame_size = priv->dev->max_mtu;
+		mtu.max_tx_frame_size = priv->dev->max_mtu;
 		hssiss_set_mtu(priv->pdev_hssi, SAL_SET_MTU, &mtu);
 	}
 
@@ -2099,10 +2179,12 @@ static int intel_fpga_xtile_probe(struct platform_device *pdev)
 		dev_info(&pdev->dev, "\tPTP Clock: %s\n", priv->ptp_priv->ptp_clock_ops.name);
 	}
 
-	__set_bit(PHY_INTERFACE_MODE_10GBASER,
-		  priv->phylink_config.supported_interfaces);
-	__set_bit(PHY_INTERFACE_MODE_25GBASER,
-		  priv->phylink_config.supported_interfaces);
+	__set_bit(PHY_INTERFACE_MODE_10GBASER, priv->phylink_config.supported_interfaces);
+	__set_bit(PHY_INTERFACE_MODE_25GBASER, priv->phylink_config.supported_interfaces);
+	__set_bit(PHY_INTERFACE_MODE_50GKR, priv->phylink_config.supported_interfaces);
+//	__set_bit(PHY_INTERFACE_MODE_50GKP, priv->phylink_config.supported_interfaces);
+	__set_bit(PHY_INTERFACE_MODE_100GKR, priv->phylink_config.supported_interfaces);
+//	__set_bit(PHY_INTERFACE_MODE_100GKP, priv->phylink_config.supported_interfaces);
 
 	/* create phylink */
 	priv->phylink = phylink_create(&priv->phylink_config, pdev->dev.fwnode,
@@ -2113,23 +2195,47 @@ static int intel_fpga_xtile_probe(struct platform_device *pdev)
 		goto err_free_netdev;
 	}
 
-	priv->autoneg = true;
+	/* Check autoneg */
+	ret  = of_property_read_string(pdev->dev.of_node, "autoneg_enabled",
+				       &autoneg_enabled);
+	dev_info(&pdev->dev, "autoneg_enabled property: %s", autoneg_enabled);
+	priv->anlt = of_property_read_bool(pdev->dev.of_node,
+					      "altr,has-anlt");
+	priv->prev_anlt_err = -1;
+	priv->fec_type = fec_type_none;
+	if (priv->anlt) {
+		if (strcasecmp(autoneg_enabled, "yes") == 0) {
+			priv->autoneg = true;
+			ret = altera_fpga_anlt_get_capabilities(priv);
+			if (ret)
+				dev_err(&pdev->dev, "ANLT : %s", get_anlt_error(ret));
+		} else {
+			priv->autoneg = false;
+			dev_info(&pdev->dev, "Disabling ANLT");
+			//Disable ANLT
+			ret = hssi_anlt_disable(pdev_hssi, priv->hssi_port);
+			if (ret)
+				dev_err(&pdev->dev, "Could not disable ANLT\n");
+		}
+	}
 
-       fixed_node = fwnode_get_named_child_node(pdev->dev.fwnode, "fixed-link");
-       if (fixed_node) {
-		fwnode_property_read_u32(fixed_node, "speed", &priv->link_speed);
-		/* read the fixed link properties*/
-		priv->duplex = DUPLEX_FULL;
-		priv->autoneg = false;
+	if (!priv->autoneg) {
+		fixed_node = fwnode_get_named_child_node(pdev->dev.fwnode, "fixed-link");
+		if (fixed_node) {
+			fwnode_property_read_u32(fixed_node, "speed", &priv->link_speed);
+			/* read the fixed link properties*/
+			priv->duplex = DUPLEX_FULL;
+			priv->autoneg = false;
 
-		dev_info(&pdev->dev, "\tfixed link speed:%d full duplex:%d\n",
-			 priv->link_speed, priv->duplex);
+			dev_info(&pdev->dev, "\tfixed link speed:%d full duplex:%d\n",
+				 priv->link_speed, priv->duplex);
 
-		fwnode_handle_put(fixed_node);
-	} else {
-		dev_err(&pdev->dev, "fixed link property undefined\n");
-		ret = -ENODEV;
-		goto err_free_netdev;
+			fwnode_handle_put(fixed_node);
+		} else {
+			dev_err(&pdev->dev, "fixed link property undefined\n");
+			ret = -ENODEV;
+			goto err_free_netdev;
+		}
 	}
 
 	ret  = of_property_read_string(pdev->dev.of_node, "if_name",

@@ -103,5 +103,6 @@ ifeq ($(CONFIG_INTEL_FPGA_GTS_TILE), y)
                                     intel_fpga_hssi_etile_ethtool.o \
 				    intel_fpga_ftile_driver.o       \
 				    intel_fpga_hssi_ftile_fec.o	    \
-				    intel_fpga_hssi_ftile_ethtool.o
+				    intel_fpga_hssi_ftile_ethtool.o \
+				    altera_fpga_anlt.o
 endif

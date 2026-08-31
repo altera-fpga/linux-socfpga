@@ -142,6 +142,12 @@ config AS21XXX_PHY
 	  AS21210PB1 that all register with the PHY ID 0x7500 0x7500
 	  before the firmware is loaded.
 
+config QSFP
+	tristate "QSFP cage support"
+	depends on I2C && PHYLINK
+	depends on HWMON || HWMON=n
+	select MDIO_I2C
+
 config AIR_EN8811H_PHY
 	tristate "Airoha EN8811H 2.5 Gigabit PHY"
 	help
