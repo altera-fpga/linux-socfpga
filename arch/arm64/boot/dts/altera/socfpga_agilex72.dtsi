@@ -695,6 +695,7 @@
 			#size-cells = <0>;
 			interrupts = <GIC_SPI 164 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clkmgr AGILEX72_LSP_MP_CLK>;
+			resets = <&rst I3C0_RESET>;
 			status = "disabled";
 		};
 
@@ -705,6 +706,7 @@
 			#size-cells = <0>;
 			interrupts = <GIC_SPI 165 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clkmgr AGILEX72_LSP_MP_CLK>;
+			resets = <&rst I3C1_RESET>;
 			status = "disabled";
 		};
 
