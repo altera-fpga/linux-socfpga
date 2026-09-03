@@ -651,6 +651,14 @@ static int mxl86110_enable_led_activity_blink(struct phy_device *phydev)
 	return ret;
 }
 
+/* Digital RGMII delay codes: field value i selects ~150 ps * i, so the table
+ * maps a picosecond request from the device tree onto the nearest code.
+ */
+static const int mxl86110_rgmii_delays[] = {
+	0, 150, 300, 450, 600, 750, 900, 1050,
+	1200, 1350, 1500, 1650, 1800, 1950, 2100, 2250,
+};
+
 /**
  * mxl86110_config_rgmii_delay() - configure RGMII delays
  * @phydev: pointer to the phy_device
@@ -659,9 +667,12 @@ static int mxl86110_enable_led_activity_blink(struct phy_device *phydev)
  */
 static int mxl86110_config_rgmii_delay(struct phy_device *phydev)
 {
-	int ret;
+	int rx_delay;
+	int tx_delay;
 	u16 val;
+	int ret;
 
+	/* Digital delay codes implied by the phy-mode. */
 	switch (phydev->interface) {
 	case PHY_INTERFACE_MODE_RGMII:
 		val = 0;
@@ -679,8 +690,26 @@ static int mxl86110_config_rgmii_delay(struct phy_device *phydev)
 			MXL86110_EXT_RGMII_CFG1_RX_DELAY_1950PS;
 		break;
 	default:
-		ret = -EINVAL;
-		goto out;
+		return -EINVAL;
+	}
+
+	/* Explicit rx/tx-internal-delay-ps bindings, when present, override the
+	 * phy-mode defaults so a board can pin the exact digital delay code.
+	 */
+	rx_delay = phy_get_internal_delay(phydev, mxl86110_rgmii_delays,
+					  ARRAY_SIZE(mxl86110_rgmii_delays), true);
+	if (rx_delay >= 0) {
+		val &= ~MXL86110_EXT_RGMII_CFG1_RX_DELAY_MASK;
+		val |= FIELD_PREP(MXL86110_EXT_RGMII_CFG1_RX_DELAY_MASK, rx_delay);
+	}
+
+	tx_delay = phy_get_internal_delay(phydev, mxl86110_rgmii_delays,
+					  ARRAY_SIZE(mxl86110_rgmii_delays), false);
+	if (tx_delay >= 0) {
+		val &= ~(MXL86110_EXT_RGMII_CFG1_TX_1G_DELAY_MASK |
+			 MXL86110_EXT_RGMII_CFG1_TX_10MB_100MB_DELAY_MASK);
+		val |= FIELD_PREP(MXL86110_EXT_RGMII_CFG1_TX_1G_DELAY_MASK, tx_delay) |
+		       FIELD_PREP(MXL86110_EXT_RGMII_CFG1_TX_10MB_100MB_DELAY_MASK, tx_delay);
 	}
 
 	ret = __mxl86110_modify_extended_reg(phydev,
@@ -688,22 +717,19 @@ static int mxl86110_config_rgmii_delay(struct phy_device *phydev)
 					     MXL86110_EXT_RGMII_CFG1_FULL_MASK,
 					     val);
 	if (ret < 0)
-		goto out;
+		return ret;
 
-	/* Configure RXDLY (RGMII Rx Clock Delay) to disable
-	 * the default additional delay value on RX_CLK
-	 * (2 ns for 125 MHz, 8 ns for 25 MHz/2.5 MHz)
-	 * and use just the digital one selected before
+	/* RXDLY_ENABLE (CHIP_CFG) adds a fixed ~2 ns to RX_CLK on top of the
+	 * digital delay above. When rx-internal-delay-ps is set we drive RX
+	 * delay digitally, so clear it; otherwise leave it as strapped.
 	 */
-	ret = __mxl86110_modify_extended_reg(phydev,
-					     MXL86110_EXT_CHIP_CFG_REG,
-					     MXL86110_EXT_CHIP_CFG_RXDLY_ENABLE,
-					     0);
-	if (ret < 0)
-		goto out;
+	if (rx_delay >= 0)
+		return __mxl86110_modify_extended_reg(phydev,
+						      MXL86110_EXT_CHIP_CFG_REG,
+						      MXL86110_EXT_CHIP_CFG_RXDLY_ENABLE,
+						      0);
 
-out:
-	return ret;
+	return 0;
 }
 
 /**
@@ -813,8 +839,6 @@ static int mxl86111_config_init(struct phy_device *phydev)
 		ret = mxl86110_config_rgmii_delay(phydev);
 		if (ret < 0)
 			goto out;
-		ret = __mxl86110_modify_extended_reg(phydev, MXL86110_EXT_RGMII_CFG1_REG,
-						     MXL86110_EXT_RGMII_CFG1_FULL_MASK, ret);
 
 		/* PL P1 requires optimized RGMII timing for 1.8V RGMII voltage
 		 */
