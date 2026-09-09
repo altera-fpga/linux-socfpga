@@ -75,7 +75,7 @@
 
 &gmac1 {
 	status = "okay";
-	phy-mode = "rgmii-txid"; /* TX clock delay provided by MAC hardware */
+	phy-mode = "rgmii-txid"; /* PHY supplies TX delay; RX delay set below */
 	mac-mode = "gmii";
 	phy-handle = <&emac1_phy0>;
 	max-frame-size = <9000>;
@@ -87,6 +87,7 @@
 
 		emac1_phy0: ethernet-phy@4 {
 			reg = <4>;
+			rx-internal-delay-ps = <900>;
 		};
 	};
 };
