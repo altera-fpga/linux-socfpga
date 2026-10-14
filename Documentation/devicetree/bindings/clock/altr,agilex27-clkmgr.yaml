@@ -1,21 +1,21 @@
 # SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 %YAML 1.2
 ---
-$id: http://devicetree.org/schemas/clock/altr,agilex72-clkmgr.yaml#
+$id: http://devicetree.org/schemas/clock/altr,agilex27-clkmgr.yaml#
 $schema: http://devicetree.org/meta-schemas/core.yaml#
 
-title: Altera SoCFPGA Agilex72 clock manager
+title: Altera SoCFPGA Agilex27 clock manager
 
 maintainers:
   - Chiam, Evon <evon.chiam@altera.com>
 
 description:
-  The Altera Agilex72 Clock Manager is an integrated clock controller, which
+  The Altera Agilex27 Clock Manager is an integrated clock controller, which
   generates and supplies clock to all the modules.
 
 properties:
   compatible:
-    const: altr,agilex72-clkmgr
+    const: altr,agilex27-clkmgr
 
   reg:
     items:
@@ -83,7 +83,7 @@ examples:
     };
 
     clkmgr: clock-controller@915c000 {
-      compatible = "altr,agilex72-clkmgr";
+      compatible = "altr,agilex27-clkmgr";
       reg = <0x915c000 0x1000>,
             <0x915e000 0x1000>,
             <0x915f000 0x1000>,
