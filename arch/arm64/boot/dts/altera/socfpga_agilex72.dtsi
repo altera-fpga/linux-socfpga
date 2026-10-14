@@ -11,7 +11,7 @@
 #include <dt-bindings/clock/altr,agilex72-clkmgr.h>
 
 / {
-	 compatible = "altr,socfpga-agilex72";
+	 compatible = "intel,socfpga-agilex72";
 	 #address-cells = <2>;
 	 #size-cells = <2>;
 

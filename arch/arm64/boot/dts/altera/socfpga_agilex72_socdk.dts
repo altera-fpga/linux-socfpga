@@ -6,7 +6,7 @@
 
 / {
 	model = "Altera SoCFPGA Agilex72 SoCDK";
-	compatible = "altr,socfpga-agilex72-socdk", "altr,socfpga-agilex72";
+	compatible = "intel,socfpga-agilex72-socdk", "intel,socfpga-agilex72";
 
 	aliases {
 		serial0 = &uart0;
