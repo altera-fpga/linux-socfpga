@@ -3,12 +3,12 @@
  * Copyright (C) 2026, Altera Corporation
  */
 
-#ifndef	__AGILEX72_CLK_H
-#define	__AGILEX72_CLK_H
+#ifndef	__AGILEX27_CLK_H
+#define	__AGILEX27_CLK_H
 
 #include <linux/clk-provider.h>
 
-struct agilex72_clock_data {
+struct agilex27_clock_data {
 	/*
 	 * MMIO bases ioremapped from DT resources with "reg-names" property
 	 * in probe:
@@ -23,19 +23,19 @@ struct agilex72_clock_data {
 	struct clk_hw_onecell_data	clk_data;
 };
 
-struct agilex72_pll {
+struct agilex27_pll {
 	struct clk_gate     hw;
 	void __iomem       *pll_base;
 };
 
-struct agilex72_periph_clk {
+struct agilex27_periph_clk {
 	struct clk_gate  hw;
 	void __iomem    *div_reg;
 	u8               div_lo_shift;
 	u8               div_hi_shift;
 };
 
-struct agilex72_gate_clk {
+struct agilex27_gate_clk {
 	struct clk_gate hw;
 	bool div_linear;
 	void __iomem *div_reg;
@@ -45,7 +45,7 @@ struct agilex72_gate_clk {
 	u8  bypass_shift;      /* only valid if bypass_reg != 0 */
 };
 
-struct agilex72_pll_clock {
+struct agilex27_pll_clock {
 	unsigned int	id;
 	const char	*name;
 	const char	* const *parent_names;
@@ -53,7 +53,7 @@ struct agilex72_pll_clock {
 	unsigned long   offset;
 };
 
-struct agilex72_perip_c_clock {
+struct agilex27_perip_c_clock {
 	unsigned int		id;
 	const char		*name;
 	const char		*parent_name;
@@ -65,7 +65,7 @@ struct agilex72_perip_c_clock {
 	u8			div_hi_width;
 };
 
-struct agilex72_perip_cnt_clock {
+struct agilex27_perip_cnt_clock {
 	unsigned int		id;
 	const char		*name;
 	const char	* const *parent_names;
@@ -73,7 +73,7 @@ struct agilex72_perip_cnt_clock {
 	unsigned long		offset;
 };
 
-struct agilex72_gate_clock {
+struct agilex27_gate_clock {
 	unsigned int		id;
 	const char		*name;
 	const char	* const *parent_names;
@@ -88,4 +88,4 @@ struct agilex72_gate_clock {
 	bool			div_linear;
 };
 
-#endif	/* __AGILEX72_CLK_H */
+#endif	/* __AGILEX27_CLK_H */

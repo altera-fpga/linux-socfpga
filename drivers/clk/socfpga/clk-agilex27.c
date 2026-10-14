@@ -8,8 +8,8 @@
 #include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/string.h>
-#include <dt-bindings/clock/altr,agilex72-clkmgr.h>
-#include "clk-agilex72.h"
+#include <dt-bindings/clock/altr,agilex27-clkmgr.h>
+#include "clk-agilex27.h"
 
 #define EMAC_BYPASS_OFFSET          0x10
 #define CLK_MGR_FREE_SHIFT          16
@@ -32,25 +32,25 @@
 #define PLL_FRACT_DIV_REG_OFFSET    0x5c
 #define PLL_CR_FRACT_DIV_MASK       0xFFFFFF
 
-static bool agilex72_gate_is_emac(const char *name);
-static u8 agilex72_parent_index(const char * const *parents,
+static bool agilex27_gate_is_emac(const char *name);
+static u8 agilex27_parent_index(const char * const *parents,
 				size_t num_parents, const char *parent_name);
-static unsigned long agilex72_boot_clk_recalc_rate(struct clk_hw *hwclk,
+static unsigned long agilex27_boot_clk_recalc_rate(struct clk_hw *hwclk,
 						   unsigned long parent_rate);
-static unsigned long agilex72_clk_pll_recalc_rate(struct clk_hw *hwclk,
+static unsigned long agilex27_clk_pll_recalc_rate(struct clk_hw *hwclk,
 						  unsigned long parent_rate);
-static unsigned long agilex72_peri_c_clk_recalc_rate(struct clk_hw *hwclk,
+static unsigned long agilex27_peri_c_clk_recalc_rate(struct clk_hw *hwclk,
 						     unsigned long parent_rate);
 static unsigned long
-agilex72_clk_peri_cnt_clk_recalc_rate(struct clk_hw *hwclk,
+agilex27_clk_peri_cnt_clk_recalc_rate(struct clk_hw *hwclk,
 				      unsigned long parent_rate);
-static unsigned long agilex72_gate_clk_recalc_rate(struct clk_hw *hwclk,
+static unsigned long agilex27_gate_clk_recalc_rate(struct clk_hw *hwclk,
 						   unsigned long parent_rate);
-static u8 agilex72_boot_get_parent(struct clk_hw *hwclk);
-static u8 agilex72_clk_pll_get_parent(struct clk_hw *hwclk);
-static u8 agilex72_peri_c_clk_get_parent(struct clk_hw *hwclk);
-static u8 agilex72_clk_periclk_get_parent(struct clk_hw *hwclk);
-static u8 agilex72_gate_get_parent(struct clk_hw *hwclk);
+static u8 agilex27_boot_get_parent(struct clk_hw *hwclk);
+static u8 agilex27_clk_pll_get_parent(struct clk_hw *hwclk);
+static u8 agilex27_peri_c_clk_get_parent(struct clk_hw *hwclk);
+static u8 agilex27_clk_periclk_get_parent(struct clk_hw *hwclk);
+static u8 agilex27_gate_get_parent(struct clk_hw *hwclk);
 
 /* External parent clocks come from DT via fw_name */
 static const char * const boot_pll_parents[] = {
@@ -288,30 +288,30 @@ static const char * const memdevice_phy_mux[] = {
 	BOOT_CLK,
 };
 
-static const struct agilex72_pll_clock pll_clks[] = {
+static const struct agilex27_pll_clock pll_clks[] = {
 	{
-		.id = AGILEX72_BOOT_CLK,
+		.id = AGILEX27_BOOT_CLK,
 		.name = BOOT_CLK,
 		.parent_names = boot_pll_parents,
 		.num_parents = ARRAY_SIZE(boot_pll_parents),
 		.offset = 0x4,
 	},
 	{
-		.id = AGILEX72_GPPLL0_CLK,
+		.id = AGILEX27_GPPLL0_CLK,
 		.name = "gppll0",
 		.parent_names = gppll0_clk_parents,
 		.num_parents = ARRAY_SIZE(gppll0_clk_parents),
 		.offset = 0x160,
 	},
 	{
-		.id = AGILEX72_GPPLL1_CLK,
+		.id = AGILEX27_GPPLL1_CLK,
 		.name = "gppll1",
 		.parent_names = gppll1_clk_parents,
 		.num_parents = ARRAY_SIZE(gppll1_clk_parents),
 		.offset = 0x80,
 	},
 	{
-		.id = AGILEX72_GPPLL2_CLK,
+		.id = AGILEX27_GPPLL2_CLK,
 		.name = "gppll2",
 		.parent_names = gppll2_clk_parents,
 		.num_parents = ARRAY_SIZE(gppll2_clk_parents),
@@ -319,66 +319,66 @@ static const struct agilex72_pll_clock pll_clks[] = {
 	},
 };
 
-static const struct agilex72_perip_c_clock main_perip_c_clks[] = {
-	{ AGILEX72_GPPLL0_C0_CLK,
+static const struct agilex27_perip_c_clock main_perip_c_clks[] = {
+	{ AGILEX27_GPPLL0_C0_CLK,
 	  "gppll0-c0", "gppll0", 1, 0x24, 23,  0, 8, 8 },
-	{ AGILEX72_GPPLL0_C1_CLK,
+	{ AGILEX27_GPPLL0_C1_CLK,
 	  "gppll0-c1", "gppll0", 1, 0x28, 14, 23, 8, 8 },
-	{ AGILEX72_GPPLL0_C2_CLK,
+	{ AGILEX27_GPPLL0_C2_CLK,
 	  "gppll0-c2", "gppll0", 1, 0x2c,  0,  9, 8, 8 },
-	{ AGILEX72_GPPLL0_C3_CLK,
+	{ AGILEX27_GPPLL0_C3_CLK,
 	  "gppll0-c3", "gppll0", 1, 0x30,  0,  9, 8, 8 },
-	{ AGILEX72_GPPLL0_C4_CLK,
+	{ AGILEX27_GPPLL0_C4_CLK,
 	  "gppll0-c4", "gppll0", 1, 0x38,  0,  9, 8, 8 },
-	{ AGILEX72_GPPLL0_C5_CLK,
+	{ AGILEX27_GPPLL0_C5_CLK,
 	  "gppll0-c5", "gppll0", 1, 0x3c,  0,  9, 8, 8 },
-	{ AGILEX72_GPPLL0_C6_CLK,
+	{ AGILEX27_GPPLL0_C6_CLK,
 	  "gppll0-c6", "gppll0", 1, 0x40,  0,  9, 8, 8 },
-	{ AGILEX72_GPPLL1_C0_CLK,
+	{ AGILEX27_GPPLL1_C0_CLK,
 	  "gppll1-c0", "gppll1", 1, 0x24, 23,  0, 8, 8 },
-	{ AGILEX72_GPPLL1_C1_CLK,
+	{ AGILEX27_GPPLL1_C1_CLK,
 	  "gppll1-c1", "gppll1", 1, 0x28, 14, 23, 8, 8 },
-	{ AGILEX72_GPPLL2_C0_CLK,
+	{ AGILEX27_GPPLL2_C0_CLK,
 	  "gppll2-c0", "gppll2", 1, 0x24, 23,  0, 8, 8 },
-	{ AGILEX72_GPPLL2_C1_CLK,
+	{ AGILEX27_GPPLL2_C1_CLK,
 	  "gppll2-c1", "gppll2", 1, 0x28, 14, 23, 8, 8 },
 };
 
 /* Non-SW clock-gated enabled clocks */
-static const struct agilex72_perip_cnt_clock main_perip_cnt_clks[] = {
-	{ AGILEX72_COMP0_FREE_CLK, "comp0_free_clk",
+static const struct agilex27_perip_cnt_clock main_perip_cnt_clks[] = {
+	{ AGILEX27_COMP0_FREE_CLK, "comp0_free_clk",
 	  comp0_free_mux, ARRAY_SIZE(comp0_free_mux), 0xbc },
-	{ AGILEX72_CORE2_FREE_CLK, "core2_free_clk",
+	{ AGILEX27_CORE2_FREE_CLK, "core2_free_clk",
 	  core2_free_mux, ARRAY_SIZE(core2_free_mux), 0xb8 },
-	{ AGILEX72_CORE3_FREE_CLK, "core3_free_clk",
+	{ AGILEX27_CORE3_FREE_CLK, "core3_free_clk",
 	  core3_free_mux, ARRAY_SIZE(core3_free_mux), 0xb4 },
-	{ AGILEX72_DSU_FREE_CLK, "dsu_free_clk",
+	{ AGILEX27_DSU_FREE_CLK, "dsu_free_clk",
 	  dsu_free_mux, ARRAY_SIZE(dsu_free_mux), 0xc0 },
-	{ AGILEX72_CCU_FREE_CLK, "ccu_free_clk",
+	{ AGILEX27_CCU_FREE_CLK, "ccu_free_clk",
 	  ccu_free_mux, ARRAY_SIZE(ccu_free_mux), 0xc4 },
-	{ AGILEX72_HSP_NOC_FREE_CLK, "hsp_noc_free_clk",
+	{ AGILEX27_HSP_NOC_FREE_CLK, "hsp_noc_free_clk",
 	  hsp_noc_free_mux, ARRAY_SIZE(hsp_noc_free_mux), 0x104 },
-	{ AGILEX72_LSP_NOC_FREE_CLK, "lsp_noc_free_clk",
+	{ AGILEX27_LSP_NOC_FREE_CLK, "lsp_noc_free_clk",
 	  lsp_noc_free_mux, ARRAY_SIZE(lsp_noc_free_mux), 0x108 },
-	{ AGILEX72_TRACE_FREE_CLK, "trace_free_clk",
+	{ AGILEX27_TRACE_FREE_CLK, "trace_free_clk",
 	  trace_free_mux, ARRAY_SIZE(trace_free_mux), 0x144 },
-	{ AGILEX72_EMAC_A_FREE_CLK, "emaca_free_clk",
+	{ AGILEX27_EMAC_A_FREE_CLK, "emaca_free_clk",
 	  emaca_free_mux, ARRAY_SIZE(emaca_free_mux), 0x128 },
-	{ AGILEX72_EMAC_B_FREE_CLK, "emacb_free_clk",
+	{ AGILEX27_EMAC_B_FREE_CLK, "emacb_free_clk",
 	  emacb_free_mux, ARRAY_SIZE(emacb_free_mux), 0x12c },
-	{ AGILEX72_EMAC_PTP_FREE_CLK, "emac_ptp_free_clk",
+	{ AGILEX27_EMAC_PTP_FREE_CLK, "emac_ptp_free_clk",
 	  emac_ptp_free_mux, ARRAY_SIZE(emac_ptp_free_mux), 0x130 },
-	{ AGILEX72_GPIO_DB_FREE_CLK, "gpio_db_free_clk",
+	{ AGILEX27_GPIO_DB_FREE_CLK, "gpio_db_free_clk",
 	  gpio_db_free_mux, ARRAY_SIZE(gpio_db_free_mux), 0x134 },
-	{ AGILEX72_USB31_FREE_CLK, "usb31_free_clk",
+	{ AGILEX27_USB31_FREE_CLK, "usb31_free_clk",
 	  usb31_free_mux, ARRAY_SIZE(usb31_free_mux), 0x140 },
-	{ AGILEX72_S2F_USER0_FREE_CLK, "s2f_user0_free_clk",
+	{ AGILEX27_S2F_USER0_FREE_CLK, "s2f_user0_free_clk",
 	  s2f_user0_free_mux, ARRAY_SIZE(s2f_user0_free_mux), 0x138 },
-	{ AGILEX72_S2F_USER1_FREE_CLK, "s2f_user1_free_clk",
+	{ AGILEX27_S2F_USER1_FREE_CLK, "s2f_user1_free_clk",
 	  s2f_user1_free_mux, ARRAY_SIZE(s2f_user1_free_mux), 0x13c },
-	{ AGILEX72_XSPI_PHY_FREE_CLK, "xspi_phy_free_clk",
+	{ AGILEX27_XSPI_PHY_FREE_CLK, "xspi_phy_free_clk",
 	  xspi_phy_clk_mux, ARRAY_SIZE(xspi_phy_clk_mux), 0x154 },
-	{ AGILEX72_MEMDEVICE_PHY_FREE_CLK, "memdevice_phy_free_clk",
+	{ AGILEX27_MEMDEVICE_PHY_FREE_CLK, "memdevice_phy_free_clk",
 	  memdevice_phy_clk_mux, ARRAY_SIZE(memdevice_phy_clk_mux), 0x148 },
 };
 
@@ -391,163 +391,163 @@ static const char * const emaca_div_parents[] = { "emaca_free_clk" };
 static const char * const emacb_div_parents[] = { "emacb_free_clk" };
 
 /* SW Clock gate enabled clocks */
-static const struct agilex72_gate_clock gate_clks[] = {
-	{ AGILEX72_COMP0_CLK, "comp0_clk", comp0_mux,
+static const struct agilex27_gate_clock gate_clks[] = {
+	{ AGILEX27_COMP0_CLK, "comp0_clk", comp0_mux,
 	  ARRAY_SIZE(comp0_mux), 0x30, 8, 0, 0, 0, 0x3c, 5, 0 },
-	{ AGILEX72_CORE2_CLK, "core2_clk", core2_mux,
+	{ AGILEX27_CORE2_CLK, "core2_clk", core2_mux,
 	  ARRAY_SIZE(core2_mux), 0x30, 10, 0, 0, 0, 0x3c, 10, 0 },
-	{ AGILEX72_CORE3_CLK, "core3_clk", core3_mux,
+	{ AGILEX27_CORE3_CLK, "core3_clk", core3_mux,
 	  ARRAY_SIZE(core3_mux), 0x30, 11, 0, 0, 0, 0x3c, 11, 0 },
-	{ AGILEX72_MPU_CLK, "mpu_clk", mpu_mux,
+	{ AGILEX27_MPU_CLK, "mpu_clk", mpu_mux,
 	  ARRAY_SIZE(mpu_mux), 0x30, 7, 0, 0, 0, 0x3c, 4, 0 },
-	{ AGILEX72_CCU_CLK, "ccu_clk", ccu_mux,
+	{ AGILEX27_CCU_CLK, "ccu_clk", ccu_mux,
 	  ARRAY_SIZE(ccu_mux), 0x30, 6, 0, 0, 0, 0x3c, 3, 0 },
-	{ AGILEX72_APU_SYS_FREE_CLK, "apu_sys_free_clk", ccu_mux,
+	{ AGILEX27_APU_SYS_FREE_CLK, "apu_sys_free_clk", ccu_mux,
 	  ARRAY_SIZE(ccu_mux), 0, 0, 0x50, 22, 2, 0x3c, 3, 0 },
-	{ AGILEX72_HSP_SYS_FREE_CLK, "hsp_sys_free_clk", hsp_noc_mux,
+	{ AGILEX27_HSP_SYS_FREE_CLK, "hsp_sys_free_clk", hsp_noc_mux,
 	  ARRAY_SIZE(hsp_noc_mux), 0, 0, 0x10c, 8, 2, 0xf0, 9, 0 },
-	{ AGILEX72_HSP_MAIN_FREE_CLK, "hsp_main_free_clk", hsp_noc_mux,
+	{ AGILEX27_HSP_MAIN_FREE_CLK, "hsp_main_free_clk", hsp_noc_mux,
 	  ARRAY_SIZE(hsp_noc_mux), 0, 0, 0, 0, 0, 0xf0, 9, 0 },
-	{ AGILEX72_HSP_MAIN_CLK, "hsp_main_clk", hsp_noc_mux,
+	{ AGILEX27_HSP_MAIN_CLK, "hsp_main_clk", hsp_noc_mux,
 	  ARRAY_SIZE(hsp_noc_mux), 0xe0, 1, 0, 0, 0, 0xf0, 9, 0 },
-	{ AGILEX72_HSP_MP_CLK, "hsp_mp_clk", hsp_noc_mux,
+	{ AGILEX27_HSP_MP_CLK, "hsp_mp_clk", hsp_noc_mux,
 	  ARRAY_SIZE(hsp_noc_mux), 0xe0, 2, 0x10c, 10, 2, 0xf0, 9, 0 },
-	{ AGILEX72_HSP_SP_CLK, "hsp_sp_clk", hsp_noc_mux,
+	{ AGILEX27_HSP_SP_CLK, "hsp_sp_clk", hsp_noc_mux,
 	  ARRAY_SIZE(hsp_noc_mux), 0xe0, 3, 0x10c, 12, 2, 0xf0, 9, 0 },
-	{ AGILEX72_USB2OTG_HCLK, "usb2otg_hclk", hsp_mp_clk_parent,
+	{ AGILEX27_USB2OTG_HCLK, "usb2otg_hclk", hsp_mp_clk_parent,
 	  1, 0xe0, 0, 0, 0, 0, 0, 0, 0 },
-	{ AGILEX72_LSP_SYS_FREE_CLK, "lsp_sys_free_clk", lsp_noc_mux,
+	{ AGILEX27_LSP_SYS_FREE_CLK, "lsp_sys_free_clk", lsp_noc_mux,
 	  ARRAY_SIZE(lsp_noc_mux), 0, 0, 0x10c, 2, 2, 0xf0, 9, 0 },
-	{ AGILEX72_LSP_MAIN_FREE_CLK, "lsp_main_free_clk", lsp_noc_mux,
+	{ AGILEX27_LSP_MAIN_FREE_CLK, "lsp_main_free_clk", lsp_noc_mux,
 	  ARRAY_SIZE(lsp_noc_mux), 0xe0, 0, 0, 0, 0, 0xf0, 9, 0 },
-	{ AGILEX72_LSP_MAIN_CLK, "lsp_main_clk", lsp_noc_mux,
+	{ AGILEX27_LSP_MAIN_CLK, "lsp_main_clk", lsp_noc_mux,
 	  ARRAY_SIZE(lsp_noc_mux), 0xe0, 1, 0, 0, 0, 0xf0, 9, 0 },
-	{ AGILEX72_LSP_MP_CLK, "lsp_mp_clk", lsp_noc_mux,
+	{ AGILEX27_LSP_MP_CLK, "lsp_mp_clk", lsp_noc_mux,
 	  ARRAY_SIZE(lsp_noc_mux), 0xe0, 2, 0x10c, 4, 2, 0xf0, 9, 0 },
-	{ AGILEX72_LSP_SP_CLK, "lsp_sp_clk", lsp_noc_mux,
+	{ AGILEX27_LSP_SP_CLK, "lsp_sp_clk", lsp_noc_mux,
 	  ARRAY_SIZE(lsp_noc_mux), 0xe0, 3, 0x10c, 6, 2, 0xf0, 9, 0 },
-	{ AGILEX72_SPIM_0_CLK, "spim_0_clk", lsp_main_parent,
+	{ AGILEX27_SPIM_0_CLK, "spim_0_clk", lsp_main_parent,
 	  1, 0xd0, 11, 0, 0, 0, 0, 0, 0 },
-	{ AGILEX72_SPIM_1_CLK, "spim_1_clk", lsp_main_parent,
+	{ AGILEX27_SPIM_1_CLK, "spim_1_clk", lsp_main_parent,
 	  1, 0xd0, 12, 0, 0, 0, 0, 0, 0 },
-	{ AGILEX72_SPIS_0_CLK, "spis_0_clk", lsp_main_parent,
+	{ AGILEX27_SPIS_0_CLK, "spis_0_clk", lsp_main_parent,
 	  1, 0xd0, 13, 0, 0, 0, 0, 0, 0 },
-	{ AGILEX72_SPIS_1_CLK, "spis_1_clk", lsp_main_parent,
+	{ AGILEX27_SPIS_1_CLK, "spis_1_clk", lsp_main_parent,
 	  1, 0xd0, 14, 0, 0, 0, 0, 0, 0 },
-	{ AGILEX72_DMA_0_CORE_CLK, "dma_0_core_clk", lsp_main_parent,
+	{ AGILEX27_DMA_0_CORE_CLK, "dma_0_core_clk", lsp_main_parent,
 	  1, 0xd0, 15, 0, 0, 0, 0, 0, 0 },
-	{ AGILEX72_DMA_0_HS_CLK, "dma_0_hs_clk", lsp_mp_parent,
+	{ AGILEX27_DMA_0_HS_CLK, "dma_0_hs_clk", lsp_mp_parent,
 	  1, 0xd0, 15, 0, 0, 0, 0, 0, 0 },
-	{ AGILEX72_DMA_1_CORE_CLK, "dma_1_core_clk", lsp_main_parent,
+	{ AGILEX27_DMA_1_CORE_CLK, "dma_1_core_clk", lsp_main_parent,
 	  1, 0xd0, 16, 0, 0, 0, 0, 0, 0 },
-	{ AGILEX72_DMA_1_HS_CLK, "dma_1_hs_clk", lsp_mp_parent,
+	{ AGILEX27_DMA_1_HS_CLK, "dma_1_hs_clk", lsp_mp_parent,
 	  1, 0xd0, 16, 0, 0, 0, 0, 0, 0 },
-	{ AGILEX72_I3C_0_CORE_CLK, "i3c_0_core_clk", lsp_mp_parent,
+	{ AGILEX27_I3C_0_CORE_CLK, "i3c_0_core_clk", lsp_mp_parent,
 	  1, 0xd0, 22, 0, 0, 0, 0, 0, 0 },
-	{ AGILEX72_I3C_1_CORE_CLK, "i3c_1_core_clk", lsp_mp_parent,
+	{ AGILEX27_I3C_1_CORE_CLK, "i3c_1_core_clk", lsp_mp_parent,
 	  1, 0xd0, 23, 0, 0, 0, 0, 0, 0 },
-	{ AGILEX72_I2C_0_PCLK, "i2c_0_pclk", lsp_sp_parent,
+	{ AGILEX27_I2C_0_PCLK, "i2c_0_pclk", lsp_sp_parent,
 	  1, 0xd0, 17, 0, 0, 0, 0, 0, 0 },
-	{ AGILEX72_I2C_1_PCLK, "i2c_1_pclk", lsp_sp_parent,
+	{ AGILEX27_I2C_1_PCLK, "i2c_1_pclk", lsp_sp_parent,
 	  1, 0xd0, 18, 0, 0, 0, 0, 0, 0 },
-	{ AGILEX72_I2C_EMAC0_PCLK, "i2c_emac0_pclk", lsp_sp_parent,
+	{ AGILEX27_I2C_EMAC0_PCLK, "i2c_emac0_pclk", lsp_sp_parent,
 	  1, 0xd0, 19, 0, 0, 0, 0, 0, 0 },
-	{ AGILEX72_I2C_EMAC1_PCLK, "i2c_emac1_pclk", lsp_sp_parent,
+	{ AGILEX27_I2C_EMAC1_PCLK, "i2c_emac1_pclk", lsp_sp_parent,
 	  1, 0xd0, 20, 0, 0, 0, 0, 0, 0 },
-	{ AGILEX72_I2C_EMAC2_PCLK, "i2c_emac2_pclk", lsp_sp_parent,
+	{ AGILEX27_I2C_EMAC2_PCLK, "i2c_emac2_pclk", lsp_sp_parent,
 	  1, 0xd0, 21, 0, 0, 0, 0, 0, 0 },
-	{ AGILEX72_UART_0_PCLK, "uart_0_pclk", lsp_sp_parent,
+	{ AGILEX27_UART_0_PCLK, "uart_0_pclk", lsp_sp_parent,
 	  1, 0xd0, 23, 0, 0, 0, 0, 0, 0 },
-	{ AGILEX72_UART_1_PCLK, "uart_1_pclk", lsp_sp_parent,
+	{ AGILEX27_UART_1_PCLK, "uart_1_pclk", lsp_sp_parent,
 	  1, 0xd0, 24, 0, 0, 0, 0, 0, 0 },
-	{ AGILEX72_UART_2_PCLK, "uart_2_pclk", lsp_sp_parent,
+	{ AGILEX27_UART_2_PCLK, "uart_2_pclk", lsp_sp_parent,
 	  1, 0xd0, 25, 0, 0, 0, 0, 0, 0 },
-	{ AGILEX72_SPTIMER_0_PCLK, "sptimer_0_pclk", lsp_sp_parent,
+	{ AGILEX27_SPTIMER_0_PCLK, "sptimer_0_pclk", lsp_sp_parent,
 	  1, 0xd0, 29, 0, 0, 0, 0, 0, 0 },
-	{ AGILEX72_SPTIMER_1_PCLK, "sptimer_1_pclk", lsp_sp_parent,
+	{ AGILEX27_SPTIMER_1_PCLK, "sptimer_1_pclk", lsp_sp_parent,
 	  1, 0xd0, 30, 0, 0, 0, 0, 0, 0 },
-	{ AGILEX72_CS_AT_CLK, "cs_at_clk", cs_at_mux,
+	{ AGILEX27_CS_AT_CLK, "cs_at_clk", cs_at_mux,
 	  ARRAY_SIZE(cs_at_mux), 0xe0, 4, 0x10c, 24, 2, 0xf0, 9, 0 },
-	{ AGILEX72_CS_PDBG_CLK, "cs_pdbg_clk", cs_pdbg_mux,
+	{ AGILEX27_CS_PDBG_CLK, "cs_pdbg_clk", cs_pdbg_mux,
 	  ARRAY_SIZE(cs_pdbg_mux), 0xe0, 4, 0x10c, 28, 2, 0xf0, 9, 0 },
-	{ AGILEX72_CS_TRACE_CLK, "cs_trace_clk", cs_trace_mux,
+	{ AGILEX27_CS_TRACE_CLK, "cs_trace_clk", cs_trace_mux,
 	  ARRAY_SIZE(cs_trace_mux), 0xe0, 4, 0x10c, 26, 2, 0xf0, 10, 0 },
-	{ AGILEX72_EMACA_DIV_CLK, "emaca_div_clk", emaca_div_parents,
+	{ AGILEX27_EMACA_DIV_CLK, "emaca_div_clk", emaca_div_parents,
 	  1, 0, 0, 0x118, 8, 2, 0, 0, 0 },
-	{ AGILEX72_EMACB_DIV_CLK, "emacb_div_clk", emacb_div_parents,
+	{ AGILEX27_EMACB_DIV_CLK, "emacb_div_clk", emacb_div_parents,
 	  1, 0, 0, 0x118, 10, 2, 0, 0, 0 },
-	{ AGILEX72_EMAC0_CLK, "emac0_clk", emac_mux,
+	{ AGILEX27_EMAC0_CLK, "emac0_clk", emac_mux,
 	  ARRAY_SIZE(emac_mux), 0xd0, 0, 0, 0, 0, 0x100, 26, 0 },
-	{ AGILEX72_EMAC1_CLK, "emac1_clk", emac_mux,
+	{ AGILEX27_EMAC1_CLK, "emac1_clk", emac_mux,
 	  ARRAY_SIZE(emac_mux), 0xd0, 1, 0, 0, 0, 0x100, 27, 0 },
-	{ AGILEX72_EMAC2_CLK, "emac2_clk", emac_mux,
+	{ AGILEX27_EMAC2_CLK, "emac2_clk", emac_mux,
 	  ARRAY_SIZE(emac_mux), 0xd0, 2, 0, 0, 0, 0x100, 28, 0 },
-	{ AGILEX72_EMAC_PTP_CLK, "emac_ptp_clk", emac_ptp_mux,
+	{ AGILEX27_EMAC_PTP_CLK, "emac_ptp_clk", emac_ptp_mux,
 	  ARRAY_SIZE(emac_ptp_mux), 0xd0, 3, 0, 0, 0, 0xf0, 2, 0 },
-	{ AGILEX72_GPIO_DB_CLK, "gpio_db_clk", gpio_db_mux,
+	{ AGILEX27_GPIO_DB_CLK, "gpio_db_clk", gpio_db_mux,
 	  ARRAY_SIZE(gpio_db_mux), 0xd0, 4, 0x114, 0, 16, 0xf0, 3, 1 },
-	{ AGILEX72_USB31_SUSPEND_CLK, "usb31_suspend_clk", usb31_mux,
+	{ AGILEX27_USB31_SUSPEND_CLK, "usb31_suspend_clk", usb31_mux,
 	  ARRAY_SIZE(usb31_mux), 0xe0, 7, 0x118, 12, 6, 0xf0, 7, 1 },
-	{ AGILEX72_USB31_BUS_CLK_EARLY, "usb31_bus_clk_early",
+	{ AGILEX27_USB31_BUS_CLK_EARLY, "usb31_bus_clk_early",
 	  usb31_bus_clk_early_parents, 1, 0xe0, 7, 0, 0, 0, 0, 0, 0 },
-	{ AGILEX72_S2F_USER0_CLK, "s2f_user0_clk", s2f_user0_mux,
+	{ AGILEX27_S2F_USER0_CLK, "s2f_user0_clk", s2f_user0_mux,
 	  ARRAY_SIZE(s2f_user0_mux), 0xd0, 27, 0, 0, 0, 0xf0, 4, 0 },
-	{ AGILEX72_S2F_USER1_CLK, "s2f_user1_clk", s2f_user1_mux,
+	{ AGILEX27_S2F_USER1_CLK, "s2f_user1_clk", s2f_user1_mux,
 	  ARRAY_SIZE(s2f_user1_mux), 0xd0, 28, 0, 0, 0, 0xf0, 5, 0 },
-	{ AGILEX72_XSPI_PCLK, "xspi_pclk", lsp_mp_parent,
+	{ AGILEX27_XSPI_PCLK, "xspi_pclk", lsp_mp_parent,
 	  1, 0xd0, 9, 0, 0, 0, 0, 0, 0 },
-	{ AGILEX72_XSPI_CLK, "xspi_clk", xspi_mux,
+	{ AGILEX27_XSPI_CLK, "xspi_clk", xspi_mux,
 	  ARRAY_SIZE(xspi_mux), 0xd0, 9, 0x110, 8, 2, 0xf0, 14, 0 },
-	{ AGILEX72_XSPI_PHY_CLK, "xspi_phy_clk", xspi_mux,
+	{ AGILEX27_XSPI_PHY_CLK, "xspi_phy_clk", xspi_mux,
 	  ARRAY_SIZE(xspi_mux), 0xd0, 9, 0x110, 8, 2, 0xf0, 14, 0 },
-	{ AGILEX72_SDMMC0_SDPHY_REG_CLK, "sdmmc0_sdphy_reg_clk",
+	{ AGILEX27_SDMMC0_SDPHY_REG_CLK, "sdmmc0_sdphy_reg_clk",
 	  lsp_mp_parent, 1, 0xd0, 5, 0, 0, 0, 0, 0, 0 },
-	{ AGILEX72_SDMMC1_SDPHY_REG_CLK, "sdmmc1_sdphy_reg_clk",
+	{ AGILEX27_SDMMC1_SDPHY_REG_CLK, "sdmmc1_sdphy_reg_clk",
 	  lsp_mp_parent, 1, 0xd0, 7, 0, 0, 0, 0, 0, 0 },
-	{ AGILEX72_SDMMC0_SDMCLK, "sdmmc0_sdmclk", memdevice_phy_mux,
+	{ AGILEX27_SDMMC0_SDMCLK, "sdmmc0_sdmclk", memdevice_phy_mux,
 	  ARRAY_SIZE(memdevice_phy_mux), 0xd0, 5, 0x110, 4, 2, 0xf0, 15, 0 },
-	{ AGILEX72_SDMMC1_SDMCLK, "sdmmc1_sdmclk", memdevice_phy_mux,
+	{ AGILEX27_SDMMC1_SDMCLK, "sdmmc1_sdmclk", memdevice_phy_mux,
 	  ARRAY_SIZE(memdevice_phy_mux), 0xd0, 7, 0x110, 6, 2, 0xf0, 15, 0 },
-	{ AGILEX72_SDMMC0_PHY_CLK, "sdmmc0_phy_clk", memdevice_phy_mux,
+	{ AGILEX27_SDMMC0_PHY_CLK, "sdmmc0_phy_clk", memdevice_phy_mux,
 	  ARRAY_SIZE(memdevice_phy_mux), 0xd0, 5, 0x110, 4, 2, 0xf0, 15, 0 },
-	{ AGILEX72_SDMMC1_PHY_CLK, "sdmmc1_phy_clk", memdevice_phy_mux,
+	{ AGILEX27_SDMMC1_PHY_CLK, "sdmmc1_phy_clk", memdevice_phy_mux,
 	  ARRAY_SIZE(memdevice_phy_mux), 0xd0, 7, 0x110, 6, 2, 0xf0, 15, 0 },
 };
 
 static const struct clk_ops clk_boot_ops = {
-	.recalc_rate = agilex72_boot_clk_recalc_rate,
-	.get_parent = agilex72_boot_get_parent,
+	.recalc_rate = agilex27_boot_clk_recalc_rate,
+	.get_parent = agilex27_boot_get_parent,
 };
 
 static const struct clk_ops clk_gppll_ops = {
-	.recalc_rate = agilex72_clk_pll_recalc_rate,
-	.get_parent = agilex72_clk_pll_get_parent,
+	.recalc_rate = agilex27_clk_pll_recalc_rate,
+	.get_parent = agilex27_clk_pll_get_parent,
 };
 
 static const struct clk_ops peri_c_clk_ops = {
-	.recalc_rate = agilex72_peri_c_clk_recalc_rate,
-	.get_parent = agilex72_peri_c_clk_get_parent,
+	.recalc_rate = agilex27_peri_c_clk_recalc_rate,
+	.get_parent = agilex27_peri_c_clk_get_parent,
 };
 
 static const struct clk_ops peri_cnt_clk_ops = {
-	.recalc_rate = agilex72_clk_peri_cnt_clk_recalc_rate,
-	.get_parent = agilex72_clk_periclk_get_parent,
+	.recalc_rate = agilex27_clk_peri_cnt_clk_recalc_rate,
+	.get_parent = agilex27_clk_periclk_get_parent,
 };
 
 static const struct clk_ops gateclk_ops = {
-	.recalc_rate = agilex72_gate_clk_recalc_rate,
-	.get_parent  = agilex72_gate_get_parent,
+	.recalc_rate = agilex27_gate_clk_recalc_rate,
+	.get_parent  = agilex27_gate_get_parent,
 };
 
-static bool agilex72_gate_is_emac(const char *name)
+static bool agilex27_gate_is_emac(const char *name)
 {
 	unsigned int i;
 
 	for (i = 0; i < ARRAY_SIZE(gate_clks); i++) {
 		switch (gate_clks[i].id) {
-		case AGILEX72_EMAC0_CLK:
-		case AGILEX72_EMAC1_CLK:
-		case AGILEX72_EMAC2_CLK:
+		case AGILEX27_EMAC0_CLK:
+		case AGILEX27_EMAC1_CLK:
+		case AGILEX27_EMAC2_CLK:
 			if (strcmp(name, gate_clks[i].name) == 0)
 				return true;
 			break;
@@ -559,7 +559,7 @@ static bool agilex72_gate_is_emac(const char *name)
 	return false;
 }
 
-static u8 agilex72_parent_index(const char * const *parents,
+static u8 agilex27_parent_index(const char * const *parents,
 				size_t num_parents, const char *parent_name)
 {
 	for (size_t i = 0; i < num_parents; i++) {
@@ -570,17 +570,17 @@ static u8 agilex72_parent_index(const char * const *parents,
 	return 0;
 }
 
-static unsigned long agilex72_boot_clk_recalc_rate(struct clk_hw *hwclk,
+static unsigned long agilex27_boot_clk_recalc_rate(struct clk_hw *hwclk,
 						   unsigned long parent_rate)
 {
 	return parent_rate;
 }
 
-static unsigned long agilex72_clk_pll_recalc_rate(struct clk_hw *hwclk,
+static unsigned long agilex27_clk_pll_recalc_rate(struct clk_hw *hwclk,
 						  unsigned long parent_rate)
 {
-	struct agilex72_pll *socfpgaclk =
-		container_of(hwclk, struct agilex72_pll, hw.hw);
+	struct agilex27_pll *socfpgaclk =
+		container_of(hwclk, struct agilex27_pll, hw.hw);
 	unsigned long long vco_freq;
 	u32 reg, cr_n_hi, cr_n_lo, crhi_m, n_div, cr_fract_div_ratio;
 	bool bypass;
@@ -615,11 +615,11 @@ static unsigned long agilex72_clk_pll_recalc_rate(struct clk_hw *hwclk,
 	return (unsigned long)vco_freq;
 }
 
-static unsigned long agilex72_peri_c_clk_recalc_rate(struct clk_hw *hwclk,
+static unsigned long agilex27_peri_c_clk_recalc_rate(struct clk_hw *hwclk,
 						     unsigned long parent_rate)
 {
-	struct agilex72_periph_clk *socfpgaclk =
-		container_of(hwclk, struct agilex72_periph_clk, hw.hw);
+	struct agilex27_periph_clk *socfpgaclk =
+		container_of(hwclk, struct agilex27_periph_clk, hw.hw);
 	u32 reg, crhi_c, crlo_c, c_div;
 	bool bypass;
 
@@ -641,13 +641,13 @@ static unsigned long agilex72_peri_c_clk_recalc_rate(struct clk_hw *hwclk,
 }
 
 static unsigned long
-agilex72_clk_peri_cnt_clk_recalc_rate(struct clk_hw *hwclk,
+agilex27_clk_peri_cnt_clk_recalc_rate(struct clk_hw *hwclk,
 				      unsigned long parent_rate)
 {
-	struct agilex72_periph_clk *socfpgaclk;
+	struct agilex27_periph_clk *socfpgaclk;
 	unsigned long div;
 
-	socfpgaclk = container_of(hwclk, struct agilex72_periph_clk, hw.hw);
+	socfpgaclk = container_of(hwclk, struct agilex27_periph_clk, hw.hw);
 	div = readl(socfpgaclk->hw.reg);
 	div &= GENMASK(PERI_CLK_CNT_DIV_WIDTH - 1, 0);
 	div += 1;  /* actual divisor is field_value + 1 */
@@ -655,11 +655,11 @@ agilex72_clk_peri_cnt_clk_recalc_rate(struct clk_hw *hwclk,
 	return parent_rate / div;
 }
 
-static unsigned long agilex72_gate_clk_recalc_rate(struct clk_hw *hwclk,
+static unsigned long agilex27_gate_clk_recalc_rate(struct clk_hw *hwclk,
 						   unsigned long parent_rate)
 {
-	struct agilex72_gate_clk *socfpgaclk = container_of(hwclk,
-		struct agilex72_gate_clk, hw.hw);
+	struct agilex27_gate_clk *socfpgaclk = container_of(hwclk,
+		struct agilex27_gate_clk, hw.hw);
 	u32 div = 1, val;
 
 	if (socfpgaclk->div_reg) {
@@ -673,10 +673,10 @@ static unsigned long agilex72_gate_clk_recalc_rate(struct clk_hw *hwclk,
 	return parent_rate / div;
 }
 
-static u8 agilex72_boot_get_parent(struct clk_hw *hwclk)
+static u8 agilex27_boot_get_parent(struct clk_hw *hwclk)
 {
-	struct agilex72_pll *socfpgaclk = container_of(hwclk,
-		struct agilex72_pll, hw.hw);
+	struct agilex27_pll *socfpgaclk = container_of(hwclk,
+		struct agilex27_pll, hw.hw);
 	u32 pll_src;
 	u8 parent;
 
@@ -685,10 +685,10 @@ static u8 agilex72_boot_get_parent(struct clk_hw *hwclk)
 	return parent;
 }
 
-static u8 agilex72_clk_pll_get_parent(struct clk_hw *hwclk)
+static u8 agilex27_clk_pll_get_parent(struct clk_hw *hwclk)
 {
-	struct agilex72_pll *socfpgaclk =
-		container_of(hwclk, struct agilex72_pll, hw.hw);
+	struct agilex27_pll *socfpgaclk =
+		container_of(hwclk, struct agilex27_pll, hw.hw);
 	u32 pll_src;
 	u8 parent;
 
@@ -698,7 +698,7 @@ static u8 agilex72_clk_pll_get_parent(struct clk_hw *hwclk)
 	return parent;
 }
 
-static u8 agilex72_peri_c_clk_get_parent(struct clk_hw *hwclk)
+static u8 agilex27_peri_c_clk_get_parent(struct clk_hw *hwclk)
 {
 	/* Peripheral C clocks (GPPLL output clocks) have a single fixed parent
 	 * (the GPPLL itself), so the parent index is always 0.
@@ -706,13 +706,13 @@ static u8 agilex72_peri_c_clk_get_parent(struct clk_hw *hwclk)
 	return 0;
 }
 
-static u8 agilex72_clk_periclk_get_parent(struct clk_hw *hwclk)
+static u8 agilex27_clk_periclk_get_parent(struct clk_hw *hwclk)
 {
-	struct agilex72_periph_clk *socfpgaclk;
+	struct agilex27_periph_clk *socfpgaclk;
 	u32 clk_src;
 	u8 parent = 0;
 
-	socfpgaclk = container_of(hwclk, struct agilex72_periph_clk, hw.hw);
+	socfpgaclk = container_of(hwclk, struct agilex27_periph_clk, hw.hw);
 
 	if (socfpgaclk->hw.reg) {
 		clk_src = readl(socfpgaclk->hw.reg);
@@ -721,10 +721,10 @@ static u8 agilex72_clk_periclk_get_parent(struct clk_hw *hwclk)
 	return parent;
 }
 
-static u8 agilex72_gate_get_parent(struct clk_hw *hwclk)
+static u8 agilex27_gate_get_parent(struct clk_hw *hwclk)
 {
-	struct agilex72_gate_clk *socfpgaclk =
-		container_of(hwclk, struct agilex72_gate_clk, hw.hw);
+	struct agilex27_gate_clk *socfpgaclk =
+		container_of(hwclk, struct agilex27_gate_clk, hw.hw);
 	void __iomem *bypass_reg = socfpgaclk->bypass_reg;
 	u32 mask, bypass_val, second_bypass;
 	u8 parent = 0;
@@ -737,7 +737,7 @@ static u8 agilex72_gate_get_parent(struct clk_hw *hwclk)
 	bypass_val = readl(bypass_reg);
 	parent = ((bypass_val & mask) >> socfpgaclk->bypass_shift);
 
-	if (agilex72_gate_is_emac(name)) {
+	if (agilex27_gate_is_emac(name)) {
 		/*
 		 * EMAC clocks have a second bypass layer in a register
 		 * EMAC_BYPASS_OFFSET bytes below the main bypass register:
@@ -747,7 +747,7 @@ static u8 agilex72_gate_get_parent(struct clk_hw *hwclk)
 		 *          parent selects emacb, i.e. parent == 1)
 		 */
 		u8 bootclk_bypass =
-			agilex72_parent_index(emac_mux, ARRAY_SIZE(emac_mux),
+			agilex27_parent_index(emac_mux, ARRAY_SIZE(emac_mux),
 					      "boot_clk");
 		/*
 		 * The second EMAC bypass register is always EMAC_BYPASS_OFFSET (0x10)
@@ -769,11 +769,11 @@ static u8 agilex72_gate_get_parent(struct clk_hw *hwclk)
 }
 
 static struct clk_hw *
-agilex72_register_pll(const struct agilex72_pll_clock *clks,
+agilex27_register_pll(const struct agilex27_pll_clock *clks,
 		      void __iomem *base, void __iomem *pll_base)
 {
 	struct clk_hw *hw_clk;
-	struct agilex72_pll *pll_clk;
+	struct agilex27_pll *pll_clk;
 	struct clk_init_data init;
 	const char *name = clks->name;
 	int ret;
@@ -808,10 +808,10 @@ agilex72_register_pll(const struct agilex72_pll_clock *clks,
 }
 
 static struct clk_hw *
-agilex72_register_periph(const struct agilex72_perip_c_clock *clks,
+agilex27_register_periph(const struct agilex27_perip_c_clock *clks,
 			 void __iomem *pll_base)
 {
-	struct agilex72_periph_clk *periph_clk;
+	struct agilex27_periph_clk *periph_clk;
 	struct clk_init_data init;
 	const char *name = clks->name;
 	struct clk_hw *hw_clk;
@@ -845,11 +845,11 @@ agilex72_register_periph(const struct agilex72_perip_c_clock *clks,
 }
 
 static struct clk_hw *
-agilex72_register_cnt_periph(const struct agilex72_perip_cnt_clock *clks,
+agilex27_register_cnt_periph(const struct agilex27_perip_cnt_clock *clks,
 			     void __iomem *regbase)
 {
 	struct clk_hw *hw_clk;
-	struct agilex72_periph_clk *periph_clk;
+	struct agilex27_periph_clk *periph_clk;
 	struct clk_init_data init;
 	const char *name = clks->name;
 	int ret;
@@ -877,11 +877,11 @@ agilex72_register_cnt_periph(const struct agilex72_perip_cnt_clock *clks,
 }
 
 static struct clk_hw *
-agilex72_register_gate(const struct agilex72_gate_clock *clks,
+agilex27_register_gate(const struct agilex27_gate_clock *clks,
 		       void __iomem *regbase)
 {
 	struct clk_hw *hw_clk;
-	struct agilex72_gate_clk *socfpga_clk;
+	struct agilex27_gate_clk *socfpga_clk;
 	struct clk_init_data init;
 	int ret;
 
@@ -927,8 +927,8 @@ agilex72_register_gate(const struct agilex72_gate_clock *clks,
 }
 
 static int
-agilex72_clk_register_cnt_perip(const struct agilex72_perip_cnt_clock *clks,
-				int nums, struct agilex72_clock_data *data)
+agilex27_clk_register_cnt_perip(const struct agilex27_perip_cnt_clock *clks,
+				int nums, struct agilex27_clock_data *data)
 {
 	struct clk_hw *hw_clk;
 	void __iomem *base = data->base[0];
@@ -941,7 +941,7 @@ agilex72_clk_register_cnt_perip(const struct agilex72_perip_cnt_clock *clks,
 			       data->clk_data.num);
 			continue;
 		}
-		hw_clk = agilex72_register_cnt_periph(&clks[i], base);
+		hw_clk = agilex27_register_cnt_periph(&clks[i], base);
 		if (IS_ERR(hw_clk)) {
 			pr_err("%s: failed to register clock %s\n", __func__,
 			       clks[i].name);
@@ -953,8 +953,8 @@ agilex72_clk_register_cnt_perip(const struct agilex72_perip_cnt_clock *clks,
 	return 0;
 }
 
-static int agilex72_clk_register_gate(const struct agilex72_gate_clock *clks,
-				      int nums, struct agilex72_clock_data *data)
+static int agilex27_clk_register_gate(const struct agilex27_gate_clock *clks,
+				      int nums, struct agilex27_clock_data *data)
 {
 	struct clk_hw *hw_clk;
 	void __iomem *base = data->base[0];
@@ -967,7 +967,7 @@ static int agilex72_clk_register_gate(const struct agilex72_gate_clock *clks,
 			       data->clk_data.num);
 			continue;
 		}
-		hw_clk = agilex72_register_gate(&clks[i], base);
+		hw_clk = agilex27_register_gate(&clks[i], base);
 		if (IS_ERR(hw_clk)) {
 			pr_err("%s: failed to register clock %s\n", __func__,
 			       clks[i].name);
@@ -986,7 +986,7 @@ static int agilex72_clk_register_gate(const struct agilex72_gate_clock *clks,
  * Returns NULL for any clock that has no dedicated PLL register block
  * (e.g. BOOT_CLK, which reuses the main clkmgr window via base[0]).
  */
-static void __iomem *agilex72_pll_get_regbase(const char *name,
+static void __iomem *agilex27_pll_get_regbase(const char *name,
 					      void __iomem * const *base)
 {
 	if (!strcmp(name, "gppll0"))
@@ -999,8 +999,8 @@ static void __iomem *agilex72_pll_get_regbase(const char *name,
 }
 
 static int
-agilex72_clk_register_c_perip(const struct agilex72_perip_c_clock *clks,
-			      int nums, struct agilex72_clock_data *data)
+agilex27_clk_register_c_perip(const struct agilex27_perip_c_clock *clks,
+			      int nums, struct agilex27_clock_data *data)
 {
 	struct clk_hw *hw_clk;
 	int i;
@@ -1019,14 +1019,14 @@ agilex72_clk_register_c_perip(const struct agilex72_perip_c_clock *clks,
 		 * therefore the correct MMIO base.
 		 */
 		void __iomem *pll_base =
-			agilex72_pll_get_regbase(clks[i].parent_name, data->base);
+			agilex27_pll_get_regbase(clks[i].parent_name, data->base);
 
 		if (!pll_base) {
 			pr_err("%s: no PLL base for clock %s (parent '%s')\n",
 			       __func__, clks[i].name, clks[i].parent_name);
 			continue;
 		}
-		hw_clk = agilex72_register_periph(&clks[i], pll_base);
+		hw_clk = agilex27_register_periph(&clks[i], pll_base);
 		if (IS_ERR(hw_clk)) {
 			pr_err("%s: failed to register clock %s\n", __func__,
 			       clks[i].name);
@@ -1037,8 +1037,8 @@ agilex72_clk_register_c_perip(const struct agilex72_perip_c_clock *clks,
 	return 0;
 }
 
-static int agilex72_clk_register_pll(const struct agilex72_pll_clock *clks,
-				     int nums, struct agilex72_clock_data *data)
+static int agilex27_clk_register_pll(const struct agilex27_pll_clock *clks,
+				     int nums, struct agilex27_clock_data *data)
 {
 	struct clk_hw *hw_clk;
 	int i;
@@ -1053,9 +1053,9 @@ static int agilex72_clk_register_pll(const struct agilex72_pll_clock *clks,
 
 		/* clks[i].name matches the DT resource name for PLL clocks */
 		void __iomem *pll_base =
-			agilex72_pll_get_regbase(clks[i].name, data->base);
+			agilex27_pll_get_regbase(clks[i].name, data->base);
 
-		hw_clk = agilex72_register_pll(&clks[i],
+		hw_clk = agilex27_register_pll(&clks[i],
 					       data->base[0], pll_base);
 		if (IS_ERR(hw_clk)) {
 			pr_err("%s: failed to register clock %s\n", __func__,
@@ -1068,11 +1068,11 @@ static int agilex72_clk_register_pll(const struct agilex72_pll_clock *clks,
 	return 0;
 }
 
-static int agilex72_clkmgr_init(struct platform_device *pdev)
+static int agilex27_clkmgr_init(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
 	struct device *dev = &pdev->dev;
-	struct agilex72_clock_data *clk_data;
+	struct agilex27_clock_data *clk_data;
 	void __iomem *base[4];
 	int i, num_clks;
 
@@ -1092,7 +1092,7 @@ static int agilex72_clkmgr_init(struct platform_device *pdev)
 	if (IS_ERR(base[3]))
 		return PTR_ERR(base[3]);
 
-	num_clks = AGILEX72_NUM_CLKS;
+	num_clks = AGILEX27_NUM_CLKS;
 
 	clk_data = devm_kzalloc(dev,
 				struct_size(clk_data, clk_data.hws, num_clks),
@@ -1116,18 +1116,18 @@ static int agilex72_clkmgr_init(struct platform_device *pdev)
 	 *   3. Cnt-peripheral clocks
 	 *   4. Gate clocks
 	 */
-	agilex72_clk_register_pll(pll_clks, ARRAY_SIZE(pll_clks),
+	agilex27_clk_register_pll(pll_clks, ARRAY_SIZE(pll_clks),
 				  clk_data);
 
-	agilex72_clk_register_c_perip(main_perip_c_clks,
+	agilex27_clk_register_c_perip(main_perip_c_clks,
 				      ARRAY_SIZE(main_perip_c_clks),
 					  clk_data);
 
-	agilex72_clk_register_cnt_perip(main_perip_cnt_clks,
+	agilex27_clk_register_cnt_perip(main_perip_cnt_clks,
 					ARRAY_SIZE(main_perip_cnt_clks),
 					    clk_data);
 
-	agilex72_clk_register_gate(gate_clks,
+	agilex27_clk_register_gate(gate_clks,
 				   ARRAY_SIZE(gate_clks), clk_data);
 
 	/*
@@ -1137,19 +1137,19 @@ static int agilex72_clkmgr_init(struct platform_device *pdev)
 	 * clock so that enabling it propagates to the parent gate without
 	 * touching any gate register of its own.
 	 */
-	clk_data->clk_data.hws[AGILEX72_USB31_REF_CLK] =
+	clk_data->clk_data.hws[AGILEX27_USB31_REF_CLK] =
 		devm_clk_hw_register_fixed_factor(dev, "usb31_ref_clk",
 						  "usb31_suspend_clk", 0, 1, 1);
-	if (IS_ERR(clk_data->clk_data.hws[AGILEX72_USB31_REF_CLK]))
+	if (IS_ERR(clk_data->clk_data.hws[AGILEX27_USB31_REF_CLK]))
 		return dev_err_probe(dev,
-			PTR_ERR(clk_data->clk_data.hws[AGILEX72_USB31_REF_CLK]),
+			PTR_ERR(clk_data->clk_data.hws[AGILEX27_USB31_REF_CLK]),
 			"failed to register clock usb31_ref_clk\n");
 
 	of_clk_add_hw_provider(np, of_clk_hw_onecell_get, &clk_data->clk_data);
 	return 0;
 }
 
-static int agilex72_clkmgr_probe(struct platform_device *pdev)
+static int agilex27_clkmgr_probe(struct platform_device *pdev)
 {
 	int (*probe_func)(struct platform_device *init_func);
 
@@ -1159,23 +1159,23 @@ static int agilex72_clkmgr_probe(struct platform_device *pdev)
 	return probe_func(pdev);
 }
 
-static const struct of_device_id agilex72_clkmgr_match_table[] = {
-	{ .compatible = "altr,agilex72-clkmgr",
-	  .data = agilex72_clkmgr_init },
+static const struct of_device_id agilex27_clkmgr_match_table[] = {
+	{ .compatible = "altr,agilex27-clkmgr",
+	  .data = agilex27_clkmgr_init },
 	{}
 };
 
-static struct platform_driver agilex72_clkmgr_driver = {
-	.probe		= agilex72_clkmgr_probe,
+static struct platform_driver agilex27_clkmgr_driver = {
+	.probe		= agilex27_clkmgr_probe,
 	.driver		= {
-		.name	= "agilex72-clkmgr",
+		.name	= "agilex27-clkmgr",
 		.suppress_bind_attrs = true,
-		.of_match_table = agilex72_clkmgr_match_table,
+		.of_match_table = agilex27_clkmgr_match_table,
 	},
 };
 
-static int __init agilex72_clk_init(void)
+static int __init agilex27_clk_init(void)
 {
-	return platform_driver_register(&agilex72_clkmgr_driver);
+	return platform_driver_register(&agilex27_clkmgr_driver);
 }
-core_initcall(agilex72_clk_init);
+core_initcall(agilex27_clk_init);

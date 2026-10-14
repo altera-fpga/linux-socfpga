@@ -13,7 +13,7 @@ config CLK_INTEL_SOCFPGA32
 	default ARM && ARCH_INTEL_SOCFPGA
 
 config CLK_INTEL_SOCFPGA64
-	bool "Intel Stratix / Agilex / N5X / Agilex5 / Agilex72 clock controller support" \
+	bool "Intel Stratix / Agilex / N5X / Agilex5 / Agilex27 clock controller support" \
 		if COMPILE_TEST && (!ARM64 || !ARCH_INTEL_SOCFPGA)
 	default ARM64 && ARCH_INTEL_SOCFPGA
 
