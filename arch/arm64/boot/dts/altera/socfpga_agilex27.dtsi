@@ -4,11 +4,11 @@
  */
 
 /dts-v1/;
-#include <dt-bindings/reset/altr,rst-mgr-agilex72.h>
+#include <dt-bindings/reset/altr,rst-mgr-agilex27.h>
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/interrupt-controller/irq.h>
-#include <dt-bindings/clock/altr,agilex72-clkmgr.h>
+#include <dt-bindings/clock/altr,agilex27-clkmgr.h>
 
 / {
 	 compatible = "intel,socfpga-agilex72";
@@ -227,7 +227,7 @@
 		};
 
 		clkmgr: clock-controller@915c000 {
-			 compatible = "altr,agilex72-clkmgr";
+			 compatible = "altr,agilex27-clkmgr";
 			 reg = <0x915c000 0x1000>,
 			       <0x915e000 0x1000>,
 			       <0x915f000 0x1000>,
@@ -247,8 +247,8 @@
 			interrupts = <GIC_SPI 260 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-parent = <&intc>;
 			status = "disabled";
-			clocks = <&clkmgr AGILEX72_LSP_MP_CLK>,
-				 <&clkmgr AGILEX72_XSPI_CLK>;
+			clocks = <&clkmgr AGILEX27_LSP_MP_CLK>,
+				 <&clkmgr AGILEX27_XSPI_CLK>;
 			clock-names = "reg-clk", "core-clk";
 
 			flash@0 {
@@ -296,8 +296,8 @@
 			interrupt-names = "macirq";
 			resets = <&rst EMAC0_RESET>;
 			reset-names = "stmmaceth";
-			clocks = <&clkmgr AGILEX72_EMAC0_CLK>,
-				 <&clkmgr AGILEX72_EMAC_PTP_CLK>;
+			clocks = <&clkmgr AGILEX27_EMAC0_CLK>,
+				 <&clkmgr AGILEX27_EMAC_PTP_CLK>;
 			clock-names = "stmmaceth", "ptp_ref";
 			mac-address = [00 00 00 00 00 00];
 			tx-fifo-depth = <32768>;
@@ -411,8 +411,8 @@
 			interrupt-names = "macirq";
 			resets = <&rst EMAC1_RESET>;
 			reset-names = "stmmaceth";
-			clocks = <&clkmgr AGILEX72_EMAC1_CLK>,
-				 <&clkmgr AGILEX72_EMAC_PTP_CLK>;
+			clocks = <&clkmgr AGILEX27_EMAC1_CLK>,
+				 <&clkmgr AGILEX27_EMAC_PTP_CLK>;
 			clock-names = "stmmaceth", "ptp_ref";
 			mac-address = [00 00 00 00 00 00];
 			tx-fifo-depth = <32768>;
@@ -526,8 +526,8 @@
 			interrupt-names = "macirq";
 			resets = <&rst EMAC2_RESET>;
 			reset-names = "stmmaceth";
-			clocks = <&clkmgr AGILEX72_EMAC2_CLK>,
-				 <&clkmgr AGILEX72_EMAC_PTP_CLK>;
+			clocks = <&clkmgr AGILEX27_EMAC2_CLK>,
+				 <&clkmgr AGILEX27_EMAC_PTP_CLK>;
 			clock-names = "stmmaceth", "ptp_ref";
 			mac-address = [00 00 00 00 00 00];
 			tx-fifo-depth = <32768>;
@@ -640,7 +640,7 @@
 			#size-cells = <0>;
 			interrupts = <GIC_SPI 103 IRQ_TYPE_LEVEL_HIGH>;
 			resets = <&rst I2C_EMAC0_RESET>;
-			clocks = <&clkmgr AGILEX72_LSP_SP_CLK>;
+			clocks = <&clkmgr AGILEX27_LSP_SP_CLK>;
 			status = "disabled";
 		};
 
@@ -651,7 +651,7 @@
 			#size-cells = <0>;
 			interrupts = <GIC_SPI 104 IRQ_TYPE_LEVEL_HIGH>;
 			resets = <&rst I2C_EMAC1_RESET>;
-			clocks = <&clkmgr AGILEX72_LSP_SP_CLK>;
+			clocks = <&clkmgr AGILEX27_LSP_SP_CLK>;
 			status = "disabled";
 		};
 
@@ -662,7 +662,7 @@
 			#size-cells = <0>;
 			interrupts = <GIC_SPI 105 IRQ_TYPE_LEVEL_HIGH>;
 			resets = <&rst I2C_EMAC2_RESET>;
-			clocks = <&clkmgr AGILEX72_LSP_SP_CLK>;
+			clocks = <&clkmgr AGILEX27_LSP_SP_CLK>;
 			status = "disabled";
 		};
 
@@ -673,7 +673,7 @@
 			#size-cells = <0>;
 			interrupts = <GIC_SPI 106 IRQ_TYPE_LEVEL_HIGH>;
 			resets = <&rst I2C0_RESET>;
-			clocks = <&clkmgr AGILEX72_LSP_SP_CLK>;
+			clocks = <&clkmgr AGILEX27_LSP_SP_CLK>;
 			status = "disabled";
 		};
 
@@ -684,7 +684,7 @@
 			#size-cells = <0>;
 			interrupts = <GIC_SPI 107 IRQ_TYPE_LEVEL_HIGH>;
 			resets = <&rst I2C1_RESET>;
-			clocks = <&clkmgr AGILEX72_LSP_SP_CLK>;
+			clocks = <&clkmgr AGILEX27_LSP_SP_CLK>;
 			status = "disabled";
 		};
 
@@ -694,7 +694,7 @@
 			#address-cells = <3>;
 			#size-cells = <0>;
 			interrupts = <GIC_SPI 164 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&clkmgr AGILEX72_LSP_MP_CLK>;
+			clocks = <&clkmgr AGILEX27_LSP_MP_CLK>;
 			resets = <&rst I3C0_RESET>;
 			status = "disabled";
 		};
@@ -705,7 +705,7 @@
 			#address-cells = <3>;
 			#size-cells = <0>;
 			interrupts = <GIC_SPI 165 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&clkmgr AGILEX72_LSP_MP_CLK>;
+			clocks = <&clkmgr AGILEX27_LSP_MP_CLK>;
 			resets = <&rst I3C1_RESET>;
 			status = "disabled";
 		};
@@ -755,8 +755,8 @@
 			reg = <0x9000000 0x4000>;
 			interrupts = <GIC_SPI 96 IRQ_TYPE_LEVEL_HIGH>;
 			resets = <&rst SDMMC0_RESET>;
-			clocks = <&clkmgr AGILEX72_SDMMC0_SDMCLK>,
-				 <&clkmgr AGILEX72_LSP_MP_CLK>;
+			clocks = <&clkmgr AGILEX27_SDMMC0_SDMCLK>,
+				 <&clkmgr AGILEX27_LSP_MP_CLK>;
 			clock-names = "ciu", "biu";
 			status = "disabled";
 		};
@@ -766,8 +766,8 @@
 			reg = <0x9004000 0x4000>;
 			interrupts = <GIC_SPI 97 IRQ_TYPE_LEVEL_HIGH>;
 			resets = <&rst SDMMC1_RESET>;
-			clocks = <&clkmgr AGILEX72_SDMMC1_SDMCLK>,
-				 <&clkmgr AGILEX72_LSP_MP_CLK>;
+			clocks = <&clkmgr AGILEX27_SDMMC1_SDMCLK>,
+				 <&clkmgr AGILEX27_LSP_MP_CLK>;
 			clock-names = "ciu", "biu";
 			status = "disabled";
 		};
@@ -783,8 +783,8 @@
 		dmac0: dma-controller@90b2000 {
 			compatible = "snps,axi-dma-1.01a";
 			reg = <0x90b2000 0x500>;
-			clocks = <&clkmgr AGILEX72_LSP_MAIN_CLK>,
-				 <&clkmgr AGILEX72_LSP_MP_CLK>;
+			clocks = <&clkmgr AGILEX27_LSP_MAIN_CLK>,
+				 <&clkmgr AGILEX27_LSP_MP_CLK>;
 			clock-names = "core-clk", "cfgr-clk";
 			interrupt-parent = <&intc>;
 			interrupts = <GIC_SPI 86 IRQ_TYPE_LEVEL_HIGH>;
@@ -800,8 +800,8 @@
 		dmac1: dma-controller@90c2000 {
 			compatible = "snps,axi-dma-1.01a";
 			reg = <0x90c2000 0x500>;
-			clocks = <&clkmgr AGILEX72_LSP_MAIN_CLK>,
-				 <&clkmgr AGILEX72_LSP_MP_CLK>;
+			clocks = <&clkmgr AGILEX27_LSP_MAIN_CLK>,
+				 <&clkmgr AGILEX27_LSP_MP_CLK>;
 			clock-names = "core-clk", "cfgr-clk";
 			interrupt-parent = <&intc>;
 			interrupts = <GIC_SPI 171 IRQ_TYPE_LEVEL_HIGH>;
@@ -842,7 +842,7 @@
 			reset-names = "spi";
 			reg-io-width = <4>;
 			num-cs = <4>;
-			clocks = <&clkmgr AGILEX72_LSP_MAIN_CLK>;
+			clocks = <&clkmgr AGILEX27_LSP_MAIN_CLK>;
 			dmas = <&dmac0 16>, <&dmac0 17>;
 			dma-names = "tx", "rx";
 			status = "disabled";
@@ -858,7 +858,7 @@
 			reset-names = "spi";
 			reg-io-width = <4>;
 			num-cs = <4>;
-			clocks = <&clkmgr AGILEX72_LSP_MAIN_CLK>;
+			clocks = <&clkmgr AGILEX27_LSP_MAIN_CLK>;
 			dmas = <&dmac0 20>, <&dmac0 21>;
 			dma-names = "tx", "rx";
 			status = "disabled";
@@ -922,7 +922,7 @@
 			reg-io-width = <4>;
 			resets = <&rst UART0_RESET>;
 			status = "okay";
-			clocks = <&clkmgr AGILEX72_LSP_SP_CLK>;
+			clocks = <&clkmgr AGILEX27_LSP_SP_CLK>;
 		};
 
 		uart1: serial@9039000 {
@@ -933,7 +933,7 @@
 			reg-io-width = <4>;
 			resets = <&rst UART1_RESET>;
 			status = "disabled";
-			clocks = <&clkmgr AGILEX72_LSP_SP_CLK>;
+			clocks = <&clkmgr AGILEX27_LSP_SP_CLK>;
 		};
 
 		uart2: serial@903a000 {
@@ -944,7 +944,7 @@
 			reg-io-width = <4>;
 			resets = <&rst UART2_RESET>;
 			status = "disabled";
-			clocks = <&clkmgr AGILEX72_LSP_SP_CLK>;
+			clocks = <&clkmgr AGILEX27_LSP_SP_CLK>;
 		};
 
 		usb0: usb@d100000 {
@@ -955,7 +955,7 @@
 			phy-names = "usb2-phy";
 			resets = <&rst USB20TG_RESET>;
 			reset-names = "dwc2";
-			clocks = <&clkmgr AGILEX72_HSP_MP_CLK>;
+			clocks = <&clkmgr AGILEX27_HSP_MP_CLK>;
 			clock-names = "otg";
 			status = "disabled";
 		};
@@ -966,9 +966,9 @@
 			interrupts = <GIC_SPI 92 IRQ_TYPE_LEVEL_HIGH>;
 			resets = <&rst USB31_RESET>, <&rst USB31PHY_RESET>;
 			reset-names = "dwc3", "dwc3-ecc";
-			clocks = <&clkmgr AGILEX72_USB31_REF_CLK>,
-				 <&clkmgr AGILEX72_USB31_SUSPEND_CLK>,
-				 <&clkmgr AGILEX72_USB31_BUS_CLK_EARLY>;
+			clocks = <&clkmgr AGILEX27_USB31_REF_CLK>,
+				 <&clkmgr AGILEX27_USB31_SUSPEND_CLK>,
+				 <&clkmgr AGILEX27_USB31_BUS_CLK_EARLY>;
 			clock-names = "ref", "suspend", "bus_early";
 			iommus = <&smmu 7>;
 			phys = <&usbphy0>, <&usbphy0>;
@@ -985,7 +985,7 @@
 			reg = <0x9078000 0x100>;
 			interrupts = <GIC_SPI 117 IRQ_TYPE_LEVEL_HIGH>;
 			resets = <&rst WATCHDOG0_RESET>;
-			clocks = <&clkmgr AGILEX72_LSP_SYS_FREE_CLK>;
+			clocks = <&clkmgr AGILEX27_LSP_SYS_FREE_CLK>;
 			status = "disabled";
 		};
 
@@ -994,7 +994,7 @@
 			reg = <0x9079000 0x100>;
 			interrupts = <GIC_SPI 118 IRQ_TYPE_LEVEL_HIGH>;
 			resets = <&rst WATCHDOG1_RESET>;
-			clocks = <&clkmgr AGILEX72_LSP_SYS_FREE_CLK>;
+			clocks = <&clkmgr AGILEX27_LSP_SYS_FREE_CLK>;
 			status = "disabled";
 		};
 
@@ -1003,7 +1003,7 @@
 			reg = <0x907a000 0x100>;
 			interrupts = <GIC_SPI 125 IRQ_TYPE_LEVEL_HIGH>;
 			resets = <&rst WATCHDOG2_RESET>;
-			clocks = <&clkmgr AGILEX72_LSP_SYS_FREE_CLK>;
+			clocks = <&clkmgr AGILEX27_LSP_SYS_FREE_CLK>;
 			status = "disabled";
 		};
 
@@ -1012,7 +1012,7 @@
 			reg = <0x907b000 0x100>;
 			interrupts = <GIC_SPI 126 IRQ_TYPE_LEVEL_HIGH>;
 			resets = <&rst WATCHDOG3_RESET>;
-			clocks = <&clkmgr AGILEX72_LSP_SYS_FREE_CLK>;
+			clocks = <&clkmgr AGILEX27_LSP_SYS_FREE_CLK>;
 			status = "disabled";
 		};
 
@@ -1021,7 +1021,7 @@
 			reg = <0x908d000 0x100>;
 			interrupts = <GIC_SPI 127 IRQ_TYPE_LEVEL_HIGH>;
 			resets = <&rst WATCHDOG4_RESET>;
-			clocks = <&clkmgr AGILEX72_LSP_SYS_FREE_CLK>;
+			clocks = <&clkmgr AGILEX27_LSP_SYS_FREE_CLK>;
 			status = "disabled";
 		};
 	 };

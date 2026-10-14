@@ -2,10 +2,10 @@
 /*
  * Copyright (C) 2026, Altera Corporation
  */
-#include "socfpga_agilex72.dtsi"
+#include "socfpga_agilex27.dtsi"
 
 / {
-	model = "Altera SoCFPGA Agilex72 SoCDK";
+	model = "Altera SoCFPGA Agilex27 SoCDK";
 	compatible = "intel,socfpga-agilex72-socdk", "intel,socfpga-agilex72";
 
 	aliases {
