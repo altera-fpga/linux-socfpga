@@ -799,6 +799,7 @@
 			cdns,trigger-address = <0x00000000>;
 			clocks = <&qspi_clk>;
 			resets = <&rst QSPI_RESET>;
+			reset-name = "qspi";
 			status = "disabled";
 		};
 
